@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ATMParts</title>
+    <title>PSP - Partes e Peças Automação</title>
+    <meta name="description" content="PSP - Partes e Peças Automação. Especialistas em motoredutores, travas eletrônicas, leitores biométricos e soluções mecatrônicas para automação industrial e predial.">
+    <meta property="og:title" content="PSP - Partes e Peças Automação">
+    <meta property="og:description" content="Soluções em automação: motoredutores, travas eletrônicas, leitores biométricos e muito mais.">
+    <meta property="og:type" content="website">
     <!-- Google Analytics tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XQBJ002YQC"></script>
     <script>
@@ -23,55 +27,157 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!--Google Icones-->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=component_exchange" />
+    <!-- AOS - Animate On Scroll -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
     <!-- Nosso CSS personalizado -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark custom-navbar sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="#">ATMParts</a>
-            <span class="material-symbols-outlined">component_exchange</span>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#inicio">Início</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#produtos">Produtos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#contato">Contato</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+        <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-dark custom-navbar sticky-top">
+                <div class="container">
+
+                    <a class="navbar-brand d-flex align-items-center" href="#">
+                        
+                        <div class="d-flex flex-column me-2">
+                            <span style="font-size:1.3rem; font-weight:600;">PSP</span>
+                        </div>
+
+                        <span class="material-symbols-outlined">component_exchange</span>
+
+                        <span style="font-size:0.75rem; line-height:1;">
+                                Partes e Peças Automação
+                        </span>
+                    </a>
+
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="#inicio">Início</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#produtos">Produtos</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#contato">Contato</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                </div>
+            </nav>
 
     <!-- Hero Section / Informações Iniciais -->
     <section id="inicio" class="hero-section text-center">
         <div class="container">
-            <span class="hero-badge">Soluções em Mecatrônica</span>
-            <h1 class="display-4 fw-bold">Bem-vindo ao ATMParts</h1>
-            <p class="lead">Peças e sistemas de automação com qualidade e precisão.</p>
-            <a href="#produtos" class="btn btn-primary btn-lg mt-3">Ver Produtos</a>
+            <span class="hero-badge">Soluções em Automação</span>
+            <h1 class="display-4 fw-bold">Bem-vindo ao PSP</h1>
+            <p class="lead">Componentes mecatrônicos de alta qualidade para automação industrial e predial.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap mt-4">
+                <a href="#produtos" class="btn btn-primary btn-lg">Ver Produtos</a>
+                <a href="https://wa.me/SEU_NUMERO" target="_blank" class="btn btn-whatsapp btn-lg">
+                    <i class="fab fa-whatsapp me-2"></i>Falar no WhatsApp
+                </a>
+            </div>
+            <!-- Atualize os valores abaixo conforme a realidade da empresa -->
+            <div class="hero-stats">
+                <div class="row justify-content-center g-4">
+                    <div class="col-6 col-md-3">
+                        <div class="stat-item">
+                            <span class="stat-number" data-target="6">0</span><span class="stat-suffix">+</span>
+                            <p>Produtos</p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-item">
+                            <span class="stat-number" data-target="10">0</span><span class="stat-suffix">+</span>
+                            <p>Anos no Mercado</p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-item">
+                            <span class="stat-number" data-target="50">0</span><span class="stat-suffix">+</span>
+                            <p>Clientes Atendidos</p>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-item">
+                            <span class="stat-number" data-target="100">0</span><span class="stat-suffix">%</span>
+                            <p>Suporte Técnico</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Diferenciais Section -->
+    <section class="diferenciais-section py-5">
+        <div class="container">
+            <div class="section-header text-center mb-5" data-aos="fade-up">
+                <span class="section-tag">Por que escolher a PSP?</span>
+                <h2>Nossos Diferenciais</h2>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="0">
+                    <div class="diferencial-card text-center">
+                        <div class="diferencial-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <h5>Qualidade Técnica</h5>
+                        <p>Componentes selecionados com rigor técnico, garantindo desempenho e durabilidade.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+                    <div class="diferencial-card text-center">
+                        <div class="diferencial-icon">
+                            <i class="fas fa-headset"></i>
+                        </div>
+                        <h5>Suporte Especializado</h5>
+                        <p>Equipe técnica pronta para auxiliar na integração e configuração dos produtos.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+                    <div class="diferencial-card text-center">
+                        <div class="diferencial-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h5>Produtos Certificados</h5>
+                        <p>Todos os itens passam por rigoroso controle de qualidade antes de chegar até você.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="300">
+                    <div class="diferencial-card text-center">
+                        <div class="diferencial-icon">
+                            <i class="fas fa-truck"></i>
+                        </div>
+                        <h5>Entrega Rápida</h5>
+                        <p>Agilidade no despacho e envio para todo o Brasil com rastreamento.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
     <!-- Produtos Section -->
     <section id="produtos" class="py-5">
         <div class="container">
-            <h2 class="text-center mb-5">Nossos Produtos</h2>
+            <div class="section-header text-center mb-5" data-aos="fade-up">
+                <span class="section-tag">Catálogo Completo</span>
+                <h2>Nossos Produtos</h2>
+            </div>
 
             <div class="row">
                 <!-- Produto 1 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="0">
                     <div class="card product-card">
                         <img src="img/MOTO-REDUTOR-PORTA-2.png" class="card-img-top" alt="Motor Porta" loading="lazy">
                         <div class="card-body">
+                            <span class="product-badge badge-motorizacao">Motorização</span>
                             <h5 class="card-title">Motoredutor Porta</h5>
                             <p class="card-text">Motoredutor para porta de automação é um sistema mecatrônico completo que combina um motor elétrico com um trem de engrenagens.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -85,10 +191,11 @@
                 </div>
 
                 <!-- Produto 2 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="100">
                     <div class="card product-card">
                         <img src="img/MOTOREDUTOR-TRACION-1.png" class="card-img-top" alt="Motor de Tração" loading="lazy">
                         <div class="card-body">
+                            <span class="product-badge badge-motorizacao">Motorização</span>
                             <h5 class="card-title">Motoredutor de Tração</h5>
                             <p class="card-text">Um motoredutor de tração é um acionamento eletromecânico compacto e integrado, composto por um motor elétrico.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -102,10 +209,11 @@
                 </div>
 
                 <!-- Produto 3 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="200">
                     <div class="card product-card">
                         <img src="img/MINI-MOTOR.png" class="card-img-top" alt="Mini Motor" loading="lazy">
                         <div class="card-body">
+                            <span class="product-badge badge-robotica">Robótica</span>
                             <h5 class="card-title">Mini Motor</h5>
                             <p class="card-text">O Mini motor, é um mini motor robustos que conta com uma caixa de redução 200:1 de engrenagens de metal.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -119,10 +227,11 @@
                 </div>
 
                 <!-- Produto 4 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="0">
                     <div class="card product-card">
                         <img src="img/BIO.png" class="card-img-top" alt="Leitor Biometrico" loading="lazy">
                         <div class="card-body">
+                            <span class="product-badge badge-acesso">Controle de Acesso</span>
                             <h5 class="card-title">Leitor Biometrico</h5>
                             <p class="card-text">Leitor Biometrico para integração em projetos.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -136,12 +245,13 @@
                 </div>
 
                 <!-- Produto 5 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="100">
                     <div class="card product-card">
                         <div class="image-container" style="height: 220px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
                             <img src="img/MITRA.png" class="card-img-top img-adjusted" alt="Trava Eletrônica" loading="lazy" style="max-height: 100%; width: auto; object-fit: contain;">
                         </div>
                         <div class="card-body">
+                            <span class="product-badge badge-acesso">Controle de Acesso</span>
                             <h5 class="card-title">Trava Eletrônica (Mitra)</h5>
                             <p class="card-text">Dispositivo que permite trancar ou destrancar uma porta, controlando acessos em ambientes internos ou externos.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -155,7 +265,7 @@
                 </div>
 
                 <!-- Produto 6 -->
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="200">
                     <div class="card product-card">
                         <div class="video-container" style="height: 220px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
                             <video class="card-video-top" style="max-height: 100%; width: auto; object-fit: contain;" autoplay muted loop playsinline>
@@ -164,6 +274,7 @@
                             </video>
                         </div>
                         <div class="card-body">
+                            <span class="product-badge badge-bluetooth">Bluetooth</span>
                             <h5 class="card-title">Trava Eletrônica Bluetooth (BLE)</h5>
                             <p class="card-text">Dispositivo que permite trancar ou destrancar uma porta, controlando acessos em ambientes internos ou externos por meio de aplicativo e conexão Bluetooth.</p>
                             <div class="d-flex justify-content-between align-items-center">
@@ -609,10 +720,51 @@
     <!-- Formulário de Contato -->
     <section id="contato" class="contact-section">
         <div class="container">
-            <h2 class="text-center mb-5">Entre em Contato</h2>
+            <div class="section-header text-center mb-5" data-aos="fade-up">
+                <span class="section-tag">Fale Conosco</span>
+                <h2>Entre em Contato</h2>
+            </div>
 
-            <div class="row justify-content-center">
-                <div class="col-md-8">
+            <div class="row g-4 align-items-stretch">
+                <!-- Informações de Contato -->
+                <div class="col-md-4" data-aos="fade-right">
+                    <div class="contact-info-card">
+                        <h5>Informações de Contato</h5>
+                        <p class="contact-subtitle">Estamos prontos para atender você. Entre em contato por qualquer um dos canais abaixo.</p>
+
+                        <div class="contact-info-item">
+                            <i class="fab fa-whatsapp"></i>
+                            <div>
+                                <strong>WhatsApp</strong>
+                                <a href="https://wa.me/SEU_NUMERO" target="_blank">+55 (XX) XXXXX-XXXX</a>
+                            </div>
+                        </div>
+                        <div class="contact-info-item">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <strong>E-mail</strong>
+                                <span>filipe@pentasis.com.br</span>
+                            </div>
+                        </div>
+                        <div class="contact-info-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <strong>Localização</strong>
+                                <span>Brasil</span>
+                            </div>
+                        </div>
+                        <div class="contact-info-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <strong>Horário de Atendimento</strong>
+                                <span>Seg–Sex: 8h às 18h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário -->
+                <div class="col-md-8" data-aos="fade-left">
                     <div class="contact-form-card">
                         <form id="contactForm" action="https://formsubmit.co/filipe@pentasis.com.br" method="POST">
                             <!-- Campos ocultos do FormSubmit -->
@@ -711,8 +863,9 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                    <strong style="font-size: 1.2rem;">ATMParts</strong>
-                    <p class="mb-0 mt-1" style="font-size: 0.9rem; opacity: 0.8;">Soluções em Mecatrônica</p>
+                    <strong style="font-size: 1.2rem;">PSP</strong>
+                    <span class="material-symbols-outlined">component_exchange</span>
+                    <p class="mb-0 mt-1" style="font-size: 0.9rem; opacity: 0.8;">Partes e Peças Automação</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
                     <div class="social-icons">
@@ -724,12 +877,24 @@
                 </div>
             </div>
             <hr class="footer-divider">
-            <p class="text-center mb-0" style="font-size: 0.85rem; opacity: 0.7;">&copy; 2025 ATMParts. Todos os direitos reservados.</p>
+            <p class="text-center mb-0" style="font-size: 0.85rem; opacity: 0.7;">&copy; 2026 PSP. Todos os direitos reservados.</p>
         </div>
     </footer>
 
+    <!-- Botão flutuante WhatsApp (atualize SEU_NUMERO para o número real com DDI+DDD) -->
+    <a href="https://wa.me/SEU_NUMERO" target="_blank" class="whatsapp-float" title="Falar no WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <!-- Botão Voltar ao Topo -->
+    <button id="backToTop" class="back-to-top" title="Voltar ao topo">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- AOS - Animate On Scroll -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <!-- Nosso JavaScript personalizado -->
     <script src="script.js"></script>
 </body>

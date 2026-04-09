@@ -11,6 +11,8 @@ class App {
     init() {
         this.setupEventListeners();
         this.setupScrollSpy();
+        this.setupBackToTop();
+        this.setupCounters();
     }
 
     setupEventListeners() {
@@ -205,7 +207,7 @@ class App {
         sections.forEach(section => {
             const sectionTop = section.offsetTop;
             const sectionHeight = section.clientHeight;
-            
+
             if (scrollPosition >= (sectionTop - 100)) {
                 currentSection = section.getAttribute('id');
             }
@@ -218,9 +220,54 @@ class App {
             }
         });
     }
+
+    setupBackToTop() {
+        const btn = document.getElementById('backToTop');
+        if (!btn) return;
+
+        window.addEventListener('scroll', () => {
+            btn.classList.toggle('visible', window.pageYOffset > 300);
+        });
+
+        btn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+
+    setupCounters() {
+        const counters = document.querySelectorAll('.stat-number');
+        if (counters.length === 0) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !entry.target.dataset.animated) {
+                    entry.target.dataset.animated = 'true';
+                    this.animateCounter(entry.target, parseInt(entry.target.dataset.target));
+                }
+            });
+        }, { threshold: 0.5 });
+
+        counters.forEach(counter => observer.observe(counter));
+    }
+
+    animateCounter(el, target) {
+        const duration = 1500;
+        const start = performance.now();
+
+        const update = (time) => {
+            const elapsed = time - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.floor(eased * target);
+            if (progress < 1) requestAnimationFrame(update);
+        };
+
+        requestAnimationFrame(update);
+    }
 }
 
 // Inicialização da aplicação quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     new App();
+    AOS.init({ duration: 600, once: true, offset: 80 });
 });
