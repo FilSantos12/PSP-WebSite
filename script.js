@@ -10,9 +10,11 @@ class App {
 
     init() {
         this.setupEventListeners();
-        this.setupScrollSpy();
-        this.setupBackToTop();
+        this.setupScrollHandlers();
         this.setupCounters();
+        this.setupLGPD();
+        this.setupProductFilter();
+        this.setupThemeToggle();
     }
 
     setupEventListeners() {
@@ -52,27 +54,12 @@ class App {
     }
 
     submitForm(form) {
-        return new Promise((resolve, reject) => {
-            // Usa a API Fetch para enviar o formulário sem redirecionamento
-            const formData = new FormData(form);
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    resolve();
-                } else {
-                    reject(new Error('Falha no envio do formulário'));
-                }
-            })
-            .catch(error => {
-                reject(error);
-            });
+        return fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'Accept': 'application/json' }
+        }).then(response => {
+            if (!response.ok) throw new Error('Falha no envio do formulário');
         });
     }
 
@@ -189,14 +176,30 @@ class App {
         }
     }
 
-    setupScrollSpy() {
+    setupScrollHandlers() {
         const sections = document.querySelectorAll('section');
         const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        const backToTopBtn = document.getElementById('backToTop');
 
-        if (sections.length === 0 || navLinks.length === 0) return;
+        if (!sections.length && !backToTopBtn) return;
 
+        let ticking = false;
         window.addEventListener('scroll', () => {
-            this.updateActiveNavLink(sections, navLinks);
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                if (sections.length && navLinks.length) {
+                    this.updateActiveNavLink(sections, navLinks);
+                }
+                if (backToTopBtn) {
+                    backToTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+                }
+                ticking = false;
+            });
+        });
+
+        backToTopBtn?.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 
@@ -205,10 +208,7 @@ class App {
         const scrollPosition = window.pageYOffset;
 
         sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.clientHeight;
-
-            if (scrollPosition >= (sectionTop - 100)) {
+            if (scrollPosition >= (section.offsetTop - 100)) {
                 currentSection = section.getAttribute('id');
             }
         });
@@ -221,16 +221,67 @@ class App {
         });
     }
 
-    setupBackToTop() {
-        const btn = document.getElementById('backToTop');
+    setupThemeToggle() {
+        const btn = document.getElementById('themeToggle');
         if (!btn) return;
 
-        window.addEventListener('scroll', () => {
-            btn.classList.toggle('visible', window.pageYOffset > 300);
-        });
+        const icon = btn.querySelector('i');
+
+        // Sincroniza o ícone com o estado atual (definido pelo anti-FOUC no <body>)
+        const updateIcon = (isDark) => {
+            icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        };
+
+        updateIcon(document.body.classList.contains('dark-mode'));
 
         btn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const isDark = document.body.classList.toggle('dark-mode');
+            updateIcon(isDark);
+            localStorage.setItem('psp_theme', isDark ? 'dark' : 'light');
+        });
+    }
+
+    setupProductFilter() {
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const productCols = document.querySelectorAll('.product-col');
+        if (!filterBtns.length) return;
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.dataset.filter;
+                productCols.forEach(col => {
+                    const match = filter === 'all' || col.dataset.category === filter;
+                    col.classList.toggle('hidden', !match);
+                });
+            });
+        });
+    }
+
+    setupLGPD() {
+        const banner = document.getElementById('lgpdBanner');
+        if (!banner) return;
+
+        const consent = localStorage.getItem('psp_lgpd_consent');
+        if (consent === 'accepted') {
+            gtag('consent', 'update', { 'analytics_storage': 'granted' });
+            return;
+        }
+        if (consent === 'rejected') return;
+
+        banner.classList.add('visible');
+
+        document.getElementById('lgpdAccept')?.addEventListener('click', () => {
+            localStorage.setItem('psp_lgpd_consent', 'accepted');
+            gtag('consent', 'update', { 'analytics_storage': 'granted' });
+            banner.classList.remove('visible');
+        });
+
+        document.getElementById('lgpdReject')?.addEventListener('click', () => {
+            localStorage.setItem('psp_lgpd_consent', 'rejected');
+            banner.classList.remove('visible');
         });
     }
 

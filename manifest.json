@@ -1,0 +1,17 @@
+{
+    "name": "PSP - Partes e Peças Automação",
+    "short_name": "PSP Automação",
+    "description": "Componentes mecatrônicos de alta qualidade para automação industrial e predial.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#274185",
+    "icons": [
+        {
+            "src": "img/FRENTE2.jpg",
+            "sizes": "512x512",
+            "type": "image/jpeg",
+            "purpose": "any maskable"
+        }
+    ]
+}

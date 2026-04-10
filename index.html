@@ -5,20 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSP - Partes e Peças Automação</title>
     <meta name="description" content="PSP - Partes e Peças Automação. Especialistas em motoredutores, travas eletrônicas, leitores biométricos e soluções mecatrônicas para automação industrial e predial.">
+    <!-- SEO: Open Graph / redes sociais -->
     <meta property="og:title" content="PSP - Partes e Peças Automação">
     <meta property="og:description" content="Soluções em automação: motoredutores, travas eletrônicas, leitores biométricos e muito mais.">
     <meta property="og:type" content="website">
-    <!-- Google Analytics tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XQBJ002YQC"></script>
+    <meta property="og:image" content="https://SEU_DOMINIO.com.br/img/FRENTE2.jpg">
+    <meta property="og:url" content="https://SEU_DOMINIO.com.br">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PSP - Partes e Peças Automação">
+    <meta name="twitter:description" content="Soluções em automação: motoredutores, travas eletrônicas, leitores biométricos e muito mais.">
+    <link rel="canonical" href="https://SEU_DOMINIO.com.br">
+    <!-- PWA -->
+    <meta name="theme-color" content="#274185">
+    <link rel="manifest" href="manifest.json">
+    <!-- Google Analytics com Consent Mode v2 (LGPD) -->
     <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', { 'analytics_storage': 'denied' });
     gtag('js', new Date());
-
     gtag('config', 'G-XQBJ002YQC');
     </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XQBJ002YQC"></script>
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>⚙️</text></svg>" type="image/svg+xml">
+    <!-- Preconnect para CDNs (melhora tempo de carregamento) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome para ícones -->
@@ -31,8 +47,32 @@
     <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
     <!-- Nosso CSS personalizado -->
     <link rel="stylesheet" href="style.css">
+    <!-- JSON-LD: dados estruturados para Google -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "PSP - Partes e Peças Automação",
+        "description": "Especialistas em motoredutores, travas eletrônicas, leitores biométricos e soluções mecatrônicas para automação industrial e predial.",
+        "url": "https://SEU_DOMINIO.com.br",
+        "email": "filipe@pentasis.com.br",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": "Portuguese"
+        }
+    }
+    </script>
 </head>
 <body>
+    <!-- Anti-FOUC: aplica o tema antes do primeiro paint -->
+    <script>
+    (function() {
+        var t = localStorage.getItem('psp_theme');
+        var d = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (t === 'dark' || (!t && d)) document.body.classList.add('dark-mode');
+    })();
+    </script>
         <!-- Navbar -->
             <nav class="navbar navbar-expand-lg navbar-dark custom-navbar sticky-top">
                 <div class="container">
@@ -60,12 +100,18 @@
                                 <a class="nav-link" href="#inicio">Início</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link" href="#sobre">Sobre</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link" href="#produtos">Produtos</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="#contato">Contato</a>
                             </li>
                         </ul>
+                        <button id="themeToggle" class="theme-toggle" title="Alternar tema" aria-label="Alternar entre modo claro e escuro">
+                            <i class="fas fa-moon"></i>
+                        </button>
                     </div>
 
                 </div>
@@ -163,6 +209,37 @@
         </div>
     </section>
 
+    <!-- Sobre Nós Section -->
+    <section id="sobre" class="sobre-section py-5">
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6" data-aos="fade-right">
+                    <span class="section-tag">Nossa História</span>
+                    <h2 class="fw-bold mb-3">Sobre a PSP Automação</h2>
+                    <p>Com mais de 10 anos de experiência no mercado de automação, a PSP nasceu com o propósito de fornecer componentes mecatrônicos de alta qualidade para integradores, desenvolvedores e indústrias de todo o Brasil.</p>
+                    <p>Atuamos com motoredutores, travas eletrônicas, leitores biométricos e soluções Bluetooth, sempre com foco em suporte técnico especializado e entrega ágil.</p>
+                    <div class="sobre-stats d-flex gap-4 mt-4">
+                        <div class="sobre-stat">
+                            <div class="sobre-stat-number">10+</div>
+                            <small>Anos no mercado</small>
+                        </div>
+                        <div class="sobre-stat">
+                            <div class="sobre-stat-number">50+</div>
+                            <small>Clientes atendidos</small>
+                        </div>
+                        <div class="sobre-stat">
+                            <div class="sobre-stat-number">6+</div>
+                            <small>Produtos no catálogo</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6" data-aos="fade-left">
+                    <img src="img/FRENTE2.jpg" alt="PSP Automação - Nossa empresa" class="sobre-img" loading="lazy">
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Produtos Section -->
     <section id="produtos" class="py-5">
         <div class="container">
@@ -171,9 +248,18 @@
                 <h2>Nossos Produtos</h2>
             </div>
 
+            <!-- Filtro de categorias -->
+            <div class="product-filter mb-4" data-aos="fade-up" data-aos-delay="100">
+                <button class="filter-btn active" data-filter="all">Todos</button>
+                <button class="filter-btn" data-filter="motorizacao">Motorização</button>
+                <button class="filter-btn" data-filter="robotica">Robótica</button>
+                <button class="filter-btn" data-filter="acesso">Controle de Acesso</button>
+                <button class="filter-btn" data-filter="bluetooth">Bluetooth</button>
+            </div>
+
             <div class="row">
                 <!-- Produto 1 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="0">
+                <div class="col-md-4 mb-4 product-col" data-category="motorizacao" data-aos="fade-up" data-aos-delay="0">
                     <div class="card product-card">
                         <img src="img/MOTO-REDUTOR-PORTA-2.png" class="card-img-top" alt="Motor Porta" loading="lazy">
                         <div class="card-body">
@@ -191,7 +277,7 @@
                 </div>
 
                 <!-- Produto 2 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="col-md-4 mb-4 product-col" data-category="motorizacao" data-aos="fade-up" data-aos-delay="100">
                     <div class="card product-card">
                         <img src="img/MOTOREDUTOR-TRACION-1.png" class="card-img-top" alt="Motor de Tração" loading="lazy">
                         <div class="card-body">
@@ -209,7 +295,7 @@
                 </div>
 
                 <!-- Produto 3 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="col-md-4 mb-4 product-col" data-category="robotica" data-aos="fade-up" data-aos-delay="200">
                     <div class="card product-card">
                         <img src="img/MINI-MOTOR.png" class="card-img-top" alt="Mini Motor" loading="lazy">
                         <div class="card-body">
@@ -227,7 +313,7 @@
                 </div>
 
                 <!-- Produto 4 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="0">
+                <div class="col-md-4 mb-4 product-col" data-category="acesso" data-aos="fade-up" data-aos-delay="0">
                     <div class="card product-card">
                         <img src="img/BIO.png" class="card-img-top" alt="Leitor Biometrico" loading="lazy">
                         <div class="card-body">
@@ -245,10 +331,10 @@
                 </div>
 
                 <!-- Produto 5 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="col-md-4 mb-4 product-col" data-category="acesso" data-aos="fade-up" data-aos-delay="100">
                     <div class="card product-card">
-                        <div class="image-container" style="height: 220px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
-                            <img src="img/MITRA.png" class="card-img-top img-adjusted" alt="Trava Eletrônica" loading="lazy" style="max-height: 100%; width: auto; object-fit: contain;">
+                        <div class="product-media-container">
+                            <img src="img/MITRA.png" class="card-img-top" alt="Trava Eletrônica" loading="lazy">
                         </div>
                         <div class="card-body">
                             <span class="product-badge badge-acesso">Controle de Acesso</span>
@@ -265,10 +351,10 @@
                 </div>
 
                 <!-- Produto 6 -->
-                <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="col-md-4 mb-4 product-col" data-category="bluetooth" data-aos="fade-up" data-aos-delay="200">
                     <div class="card product-card">
-                        <div class="video-container" style="height: 220px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
-                            <video class="card-video-top" style="max-height: 100%; width: auto; object-fit: contain;" autoplay muted loop playsinline>
+                        <div class="product-media-container">
+                            <video autoplay muted loop playsinline>
                                 <source src="video/AppBle.mp4" type="video/mp4">
                                 Seu navegador não suporta vídeos em HTML5.
                             </video>
@@ -890,6 +976,20 @@
     <button id="backToTop" class="back-to-top" title="Voltar ao topo">
         <i class="fas fa-chevron-up"></i>
     </button>
+
+    <!-- Banner de Consentimento LGPD -->
+    <div id="lgpdBanner" class="lgpd-banner" role="dialog" aria-label="Aviso de cookies e privacidade">
+        <div class="lgpd-banner-content">
+            <p class="lgpd-text">
+                <i class="fas fa-shield-alt me-2"></i>
+                Utilizamos cookies e o Google Analytics para melhorar sua experiência. Ao aceitar, você consente com o uso de cookies conforme a <strong>LGPD</strong>.
+            </p>
+            <div class="lgpd-actions">
+                <button id="lgpdReject" class="btn btn-outline-light btn-sm">Recusar</button>
+                <button id="lgpdAccept" class="btn btn-primary btn-sm">Aceitar</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
