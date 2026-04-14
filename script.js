@@ -15,6 +15,8 @@ class App {
         this.setupLGPD();
         this.setupProductFilter();
         this.setupThemeToggle();
+        this.setupCheckout();
+        this.setupImageLightbox();
     }
 
     setupEventListeners() {
@@ -314,6 +316,183 @@ class App {
         };
 
         requestAnimationFrame(update);
+    }
+
+    // ── CHECKOUT ──────────────────────────────────────────────────────────────
+
+    setupCheckout() {
+        this._checkoutPrice = 0;
+
+        // Abre o modal de checkout ao clicar em qualquer .btn-buy
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-buy');
+            if (!btn) return;
+
+            const productName  = btn.dataset.productName;
+            const productPrice = parseFloat(btn.dataset.productPrice);
+
+            // Fecha modal de produto se estiver aberto
+            const parentModal = btn.closest('.modal');
+            if (parentModal) {
+                bootstrap.Modal.getInstance(parentModal)?.hide();
+            }
+
+            this._checkoutPrice = productPrice;
+            this._openCheckoutModal(productName, productPrice, !!parentModal);
+        });
+
+        // Controles de quantidade
+        document.getElementById('checkout-qty-minus')?.addEventListener('click', () => {
+            const qtyEl = document.getElementById('checkout-qty');
+            const val   = Math.max(1, parseInt(qtyEl.value) - 1);
+            qtyEl.value = val;
+            this._updateCheckoutTotal(this._checkoutPrice, val);
+        });
+
+        document.getElementById('checkout-qty-plus')?.addEventListener('click', () => {
+            const qtyEl = document.getElementById('checkout-qty');
+            const val   = Math.min(99, parseInt(qtyEl.value) + 1);
+            qtyEl.value = val;
+            this._updateCheckoutTotal(this._checkoutPrice, val);
+        });
+
+        document.getElementById('checkout-qty')?.addEventListener('input', () => {
+            const val = Math.max(1, parseInt(document.getElementById('checkout-qty').value) || 1);
+            this._updateCheckoutTotal(this._checkoutPrice, val);
+        });
+
+        // Limpa estado de erro ao digitar
+        ['checkout-nome', 'checkout-email', 'checkout-telefone'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', () => {
+                document.getElementById(id)?.classList.remove('is-invalid');
+            });
+        });
+
+        // Submissão do checkout
+        document.getElementById('checkout-submit')?.addEventListener('click', () => {
+            const fields = [
+                { id: 'checkout-nome',     value: document.getElementById('checkout-nome')?.value.trim() },
+                { id: 'checkout-email',    value: document.getElementById('checkout-email')?.value.trim() },
+                { id: 'checkout-telefone', value: document.getElementById('checkout-telefone')?.value.trim() }
+            ];
+
+            let valid = true;
+            fields.forEach(({ id, value }) => {
+                const el = document.getElementById(id);
+                if (!value) {
+                    el.classList.add('is-invalid');
+                    valid = false;
+                }
+            });
+
+            if (!valid) {
+                // Foca no primeiro campo inválido
+                const first = document.querySelector('#checkoutForm .is-invalid');
+                first?.focus();
+                return;
+            }
+
+            // Fecha checkout e exibe spinner de redirecionamento
+            bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+
+            setTimeout(() => {
+                const redirectModal = new bootstrap.Modal(document.getElementById('paymentRedirectModal'));
+                redirectModal.show();
+
+                // Quando o backend estiver integrado, aqui virá o redirect real para o Mercado Pago.
+                // Por ora, após 2,5s fecha o spinner e informa o usuário.
+                setTimeout(() => {
+                    redirectModal.hide();
+                    setTimeout(() => this._showPaymentComingSoon(), 400);
+                }, 2500);
+            }, 400);
+        });
+    }
+
+    _openCheckoutModal(productName, price, withDelay) {
+        document.getElementById('checkout-product-name').textContent = productName;
+        document.getElementById('checkout-qty').value = 1;
+        this._updateCheckoutTotal(price, 1);
+
+        // Limpa campos e erros anteriores
+        ['checkout-nome', 'checkout-email', 'checkout-telefone'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = ''; el.classList.remove('is-invalid'); }
+        });
+
+        setTimeout(() => {
+            new bootstrap.Modal(document.getElementById('checkoutModal')).show();
+        }, withDelay ? 450 : 0);
+    }
+
+    _updateCheckoutTotal(price, qty) {
+        const total     = price * qty;
+        const formatted = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('checkout-total').textContent     = formatted;
+        document.getElementById('checkout-btn-total').textContent = formatted;
+    }
+
+    // ── LIGHTBOX ─────────────────────────────────────────────────────────────
+
+    setupImageLightbox() {
+        const overlay   = document.getElementById('lightboxOverlay');
+        const lbImg     = document.getElementById('lightbox-img');
+        const lbCaption = document.getElementById('lightbox-caption');
+        if (!overlay) return;
+
+        const open = (src, alt) => {
+            lbImg.src           = src;
+            lbImg.alt           = alt;
+            lbCaption.textContent = alt || '';
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        const close = () => {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        };
+
+        // Clique em imagem de card, carrossel ou modal de produto
+        document.addEventListener('click', (e) => {
+            const img = e.target.closest(
+                'img.card-img-top, img.carousel-img, img.modal-product-image'
+            );
+            if (!img) return;
+            open(img.src, img.alt);
+        });
+
+        // Fecha ao clicar no fundo escuro
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        // Fecha pelo botão X
+        document.getElementById('lightboxClose')?.addEventListener('click', close);
+
+        // Fecha com Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+        });
+    }
+
+    _showPaymentComingSoon() {
+        const modal   = document.getElementById('confirmationModal');
+        const header  = modal.querySelector('.modal-header');
+        const title   = modal.querySelector('.modal-title');
+        const icon    = modal.querySelector('.modal-body .fa-check-circle');
+        const heading = modal.querySelector('.modal-body h4');
+        const text    = modal.querySelector('.modal-body p');
+        const footerBtn = modal.querySelector('.modal-footer .btn');
+
+        header.className    = 'modal-header bg-primary text-white';
+        title.innerHTML     = '<i class="fas fa-rocket me-2"></i>Em breve!';
+        if (icon)    icon.className    = 'fas fa-rocket text-primary';
+        if (heading) { heading.textContent = 'Pagamento online em breve!'; heading.className = 'text-primary'; }
+        if (text)    text.textContent  = 'Estamos integrando o Mercado Pago. Em breve você poderá comprar direto pelo site!';
+        if (footerBtn) { footerBtn.className = 'btn btn-primary'; footerBtn.innerHTML = '<i class="fas fa-thumbs-up me-2"></i>Entendi'; }
+
+        new bootstrap.Modal(modal).show();
     }
 }
 
