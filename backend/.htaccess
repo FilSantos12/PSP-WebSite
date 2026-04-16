@@ -1,0 +1,10 @@
+# Bloqueia acesso direto à pasta config/ via browser
+<Files "*.php">
+    <RequireAll>
+        Require all granted
+    </RequireAll>
+</Files>
+
+<DirectoryMatch "config">
+    Require all denied
+</DirectoryMatch>

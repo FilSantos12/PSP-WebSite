@@ -17,6 +17,7 @@ class App {
         this.setupThemeToggle();
         this.setupCheckout();
         this.setupImageLightbox();
+        this.loadProductPrices();
     }
 
     setupEventListeners() {
@@ -321,7 +322,8 @@ class App {
     // ── CHECKOUT ──────────────────────────────────────────────────────────────
 
     setupCheckout() {
-        this._checkoutPrice = 0;
+        this._checkoutPrice     = 0;
+        this._checkoutProductId = 0;
 
         // Abre o modal de checkout ao clicar em qualquer .btn-buy
         document.addEventListener('click', (e) => {
@@ -337,7 +339,8 @@ class App {
                 bootstrap.Modal.getInstance(parentModal)?.hide();
             }
 
-            this._checkoutPrice = productPrice;
+            this._checkoutPrice     = productPrice;
+            this._checkoutProductId = parseInt(btn.dataset.productId) || 0;
             this._openCheckoutModal(productName, productPrice, !!parentModal);
         });
 
@@ -369,7 +372,7 @@ class App {
         });
 
         // Submissão do checkout
-        document.getElementById('checkout-submit')?.addEventListener('click', () => {
+        document.getElementById('checkout-submit')?.addEventListener('click', async () => {
             const fields = [
                 { id: 'checkout-nome',     value: document.getElementById('checkout-nome')?.value.trim() },
                 { id: 'checkout-email',    value: document.getElementById('checkout-email')?.value.trim() },
@@ -386,26 +389,58 @@ class App {
             });
 
             if (!valid) {
-                // Foca no primeiro campo inválido
-                const first = document.querySelector('#checkoutForm .is-invalid');
-                first?.focus();
+                document.querySelector('#checkoutForm .is-invalid')?.focus();
                 return;
             }
 
-            // Fecha checkout e exibe spinner de redirecionamento
-            bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+            const submitBtn = document.getElementById('checkout-submit');
+            submitBtn.disabled = true;
 
-            setTimeout(() => {
-                const redirectModal = new bootstrap.Modal(document.getElementById('paymentRedirectModal'));
-                redirectModal.show();
+            const qty = parseInt(document.getElementById('checkout-qty').value) || 1;
 
-                // Quando o backend estiver integrado, aqui virá o redirect real para o Mercado Pago.
-                // Por ora, após 2,5s fecha o spinner e informa o usuário.
-                setTimeout(() => {
-                    redirectModal.hide();
-                    setTimeout(() => this._showPaymentComingSoon(), 400);
-                }, 2500);
-            }, 400);
+            try {
+                // 1. Grava o pedido no banco
+                const rPedido = await fetch('backend/api/pedidos.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nome_comprador:     fields[0].value,
+                        email_comprador:    fields[1].value,
+                        telefone_comprador: fields[2].value,
+                        produto_id:         this._checkoutProductId,
+                        quantidade:         qty,
+                    }),
+                });
+
+                if (!rPedido.ok) throw new Error('Erro ao criar pedido.');
+                const pedido = await rPedido.json();
+
+                // 2. Fecha checkout e exibe spinner
+                bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+                await new Promise(r => setTimeout(r, 400));
+                new bootstrap.Modal(document.getElementById('paymentRedirectModal')).show();
+
+                // 3. Cria a preference no Mercado Pago
+                const rPagamento = await fetch('backend/api/pagamento.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pedido_id: pedido.pedido_id }),
+                });
+
+                if (!rPagamento.ok) throw new Error('Erro ao criar pagamento.');
+                const mp = await rPagamento.json();
+
+                // 4. Redireciona para o Mercado Pago
+                if (mp.sandbox_url) {
+                    window.location.href = mp.sandbox_url;
+                }
+
+            } catch (err) {
+                console.error('Checkout error:', err);
+                submitBtn.disabled = false;
+                bootstrap.Modal.getInstance(document.getElementById('paymentRedirectModal'))?.hide();
+                setTimeout(() => this._showPaymentComingSoon(), 400);
+            }
         });
     }
 
@@ -474,6 +509,40 @@ class App {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && overlay.classList.contains('active')) close();
         });
+    }
+
+    // ── PRODUTOS — carrega preços do banco ───────────────────────────────────
+
+    loadProductPrices() {
+        fetch('backend/api/produtos.php')
+            .then(r => r.json())
+            .then(produtos => {
+                produtos.forEach(p => {
+                    const formatted = p.preco.toLocaleString('pt-BR', {
+                        style: 'currency', currency: 'BRL'
+                    });
+
+                    // Atualiza todos os botões .btn-buy com este produto
+                    document.querySelectorAll(`.btn-buy[data-product-id="${p.id}"]`).forEach(btn => {
+                        btn.dataset.productPrice = p.preco;
+
+                        // Preço no card
+                        const card = btn.closest('.card');
+                        if (card) {
+                            const priceEl = card.querySelector('.product-price');
+                            if (priceEl) priceEl.textContent = formatted;
+                        }
+
+                        // Preço no modal de detalhe do produto
+                        const modal = btn.closest('.modal');
+                        if (modal) {
+                            const priceEl = modal.querySelector('.product-price-modal');
+                            if (priceEl) priceEl.textContent = formatted;
+                        }
+                    });
+                });
+            })
+            .catch(() => { /* mantém preços do HTML se API falhar */ });
     }
 
     _showPaymentComingSoon() {

@@ -1,0 +1,22 @@
+# Banco de dados SQLite
+database.db
+database.db-shm
+database.db-wal
+
+# Configurações sensíveis
+config/mercadopago.php
+backend/config/mercadopago.php
+
+# Setup (rodar localmente e apagar após uso)
+setup.php
+
+# Logs gerados pelo webhook
+logs/
+
+# Dependências PHP
+vendor/
+composer.lock
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

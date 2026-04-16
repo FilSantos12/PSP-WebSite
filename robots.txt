@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://SEU_DOMINIO.com.br/sitemap.xml
+Sitemap: https://www.pspart.com.br/sitemap.xml

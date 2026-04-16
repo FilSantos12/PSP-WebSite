@@ -1,7 +1,7 @@
-# PSP-Website — Contexto do Projeto
+# PSPart-Website — Contexto do Projeto
 
 ## Visão geral
-Site estático da **PSP - Partes e Peças Automação** (filipe@pentasis.com.br).
+Site estático da **PSPart - Partes e Peças Automação** (filipe@pentasis.com.br).
 Sem build process — deploy direto para hospedagem estática.
 Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e **área admin PHP**.
 
@@ -91,20 +91,20 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | Fase | Descrição | Status |
 |---|---|---|
 | Fase 5 | Frontend — preços, checkout modal, lightbox | ✅ Concluído (aguarda aprovação interna) |
-| Fase 1 | Banco de dados SQL Server (schema + setup.php) | Pendente |
-| Fase 2 | Config PHP + API (products, payment, webhook) | Pendente |
-| Fase 3 | Integração Mercado Pago Checkout Pro | Pendente |
-| Fase 4 | Área Admin (dashboard, CRUD produtos, pedidos) | Pendente |
+| Fase 1 | Banco de dados SQLite (schema + setup.php) | ✅ Concluído |
+| Fase 2 | Backend PHP + API (produtos, pedidos, pagamento stub, webhook stub) | ✅ Concluído |
+| Fase 3 | Integração Mercado Pago Checkout Pro | ✅ Concluído |
+| Fase 4 | Área Admin (dashboard, CRUD produtos, pedidos, login) | ✅ Concluído |
 
 ## Decisões técnicas
 - **Backend:** PHP (familiaridade do desenvolvedor)
-- **Banco de dados:** SQL Server (local, conexão PDO com driver SQLSRV)
+- **Banco de dados:** SQLite (arquivo `.db` junto ao projeto, PDO nativo, sem driver extra, compatível com hospedagem compartilhada)
 - **Pagamentos:** Mercado Pago **Checkout Pro** (redirect), SDK `mercadopago/dx-php` via Composer
 - **TypeScript:** descartado — JS puro suficiente para o escopo do projeto
 - **Conta MP:** ainda não criada — credenciais serão adicionadas em `config/mercadopago.php`
+- **SQL Server:** descartado — requer driver `pdo_sqlsrv` e servidor dedicado, inviável em hospedagem compartilhada
 
 ## Placeholders pendentes
-- `SEU_DOMINIO.com.br` — em `og:url`, `og:image`, `canonical`, JSON-LD, `robots.txt`, `sitemap.xml`
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)
 - Ícones PWA reais (192×192 e 512×512 PNG) para `manifest.json`
 - Texto da seção "Sobre Nós" com história real da empresa
