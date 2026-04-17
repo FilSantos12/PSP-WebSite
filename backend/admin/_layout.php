@@ -84,9 +84,14 @@ function layout_head(string $titulo): void {
     </nav>
     <div class="sidebar-footer">
         <div class="text-truncate mb-1" style="color:#fff;"><?= htmlspecialchars($_SESSION['admin_nome'] ?? '') ?></div>
-        <a href="<?= $base ?>logout.php" class="text-danger text-decoration-none small">
-            <i class="fas fa-sign-out-alt me-1"></i>Sair
-        </a>
+        <div class="d-flex gap-3">
+            <a href="<?= $base ?>minha-conta.php" class="text-secondary text-decoration-none small">
+                <i class="fas fa-key me-1"></i>Senha
+            </a>
+            <a href="<?= $base ?>logout.php" class="text-danger text-decoration-none small">
+                <i class="fas fa-sign-out-alt me-1"></i>Sair
+            </a>
+        </div>
     </div>
 </div>
 

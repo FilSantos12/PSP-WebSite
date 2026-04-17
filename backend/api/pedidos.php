@@ -81,6 +81,10 @@ try {
         ':preco_unitario' => $precoUnitario,
     ]);
 
+    // Decrementa o estoque
+    $pdo->prepare("UPDATE produtos SET estoque = estoque - :qty WHERE id = :id")
+        ->execute([':qty' => $quantidade, ':id' => $produtoId]);
+
     $pdo->commit();
 
     json_ok([

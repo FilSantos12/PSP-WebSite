@@ -68,7 +68,6 @@ try {
             'failure' => MP_BASE_URL . '/?pagamento=recusado&pedido='  . $pedidoId,
             'pending' => MP_BASE_URL . '/?pagamento=pendente&pedido='  . $pedidoId,
         ],
-        'auto_return'          => 'approved',
         'external_reference'   => (string) $pedidoId,
         'notification_url'     => MP_BASE_URL . '/backend/api/webhook.php',
     ]);

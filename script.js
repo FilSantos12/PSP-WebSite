@@ -13,11 +13,10 @@ class App {
         this.setupScrollHandlers();
         this.setupCounters();
         this.setupLGPD();
-        this.setupProductFilter();
         this.setupThemeToggle();
         this.setupCheckout();
         this.setupImageLightbox();
-        this.loadProductPrices();
+        this.renderProducts();
     }
 
     setupEventListeners() {
@@ -511,38 +510,113 @@ class App {
         });
     }
 
-    // ── PRODUTOS — carrega preços do banco ───────────────────────────────────
+    // ── PRODUTOS — renderiza cards e modais a partir da API ──────────────────
 
-    loadProductPrices() {
-        fetch('backend/api/produtos.php')
-            .then(r => r.json())
-            .then(produtos => {
-                produtos.forEach(p => {
-                    const formatted = p.preco.toLocaleString('pt-BR', {
-                        style: 'currency', currency: 'BRL'
-                    });
+    async renderProducts() {
+        const categoryLabels = {
+            motorizacao: 'Motorização',
+            robotica:    'Robótica',
+            acesso:      'Controle de Acesso',
+            bluetooth:   'Bluetooth',
+        };
 
-                    // Atualiza todos os botões .btn-buy com este produto
-                    document.querySelectorAll(`.btn-buy[data-product-id="${p.id}"]`).forEach(btn => {
-                        btn.dataset.productPrice = p.preco;
+        try {
+            const r       = await fetch('backend/api/produtos.php');
+            const produtos = await r.json();
 
-                        // Preço no card
-                        const card = btn.closest('.card');
-                        if (card) {
-                            const priceEl = card.querySelector('.product-price');
-                            if (priceEl) priceEl.textContent = formatted;
-                        }
+            const grid   = document.getElementById('products-grid');
+            const modals = document.getElementById('product-modals');
+            if (!grid || !modals) return;
 
-                        // Preço no modal de detalhe do produto
-                        const modal = btn.closest('.modal');
-                        if (modal) {
-                            const priceEl = modal.querySelector('.product-price-modal');
-                            if (priceEl) priceEl.textContent = formatted;
-                        }
-                    });
-                });
-            })
-            .catch(() => { /* mantém preços do HTML se API falhar */ });
+            let cardsHtml  = '';
+            let modalsHtml = '';
+
+            produtos.forEach((p, i) => {
+                const label  = categoryLabels[p.categoria] || p.categoria;
+                const preco  = p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const imgSrc = p.imagem || '';
+                const imgTag = imgSrc
+                    ? `<img src="${imgSrc}" class="card-img-top" alt="${p.nome}" loading="lazy">`
+                    : `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height:180px"><i class="fas fa-image fa-3x text-muted"></i></div>`;
+                const modalImg = imgSrc
+                    ? `<img src="${imgSrc}" class="modal-product-image" alt="${p.nome}" loading="lazy">`
+                    : '';
+                const delay = (i % 3) * 100;
+
+                cardsHtml += `
+                <div class="col-md-4 mb-4 product-col" data-category="${p.categoria}" data-aos="fade-up" data-aos-delay="${delay}">
+                    <div class="card product-card">
+                        ${imgTag}
+                        <div class="card-body">
+                            <span class="product-badge badge-${p.categoria}">${label}</span>
+                            <h5 class="card-title">${p.nome}</h5>
+                            <p class="card-text">${p.descricao || ''}</p>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="product-price">${preco}</span>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                            data-bs-toggle="modal" data-bs-target="#productModal${p.id}">
+                                        Detalhes
+                                    </button>
+                                    <button type="button" class="btn btn-success btn-sm btn-buy"
+                                            data-product-id="${p.id}"
+                                            data-product-name="${p.nome}"
+                                            data-product-price="${p.preco}"
+                                            title="Comprar">
+                                        <i class="fas fa-cart-shopping"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+                modalsHtml += `
+                <div class="modal fade" id="productModal${p.id}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${p.nome} — Detalhes</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-6 modal-image-container">${modalImg}</div>
+                                    <div class="col-md-6">
+                                        <h4>${p.nome}</h4>
+                                        <span class="product-badge badge-${p.categoria} mb-2 d-inline-block">${label}</span>
+                                        <p>${p.descricao || ''}</p>
+                                        ${p.estoque > 0
+                                            ? `<span class="badge bg-success">Em estoque (${p.estoque} un.)</span>`
+                                            : `<span class="badge bg-danger">Fora de estoque</span>`}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <span class="me-auto product-price-modal">${preco}</span>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                <button type="button" class="btn btn-outline-primary solicitar-orcamento" data-product="${p.nome}">
+                                    Solicitar Orçamento
+                                </button>
+                                <button type="button" class="btn btn-success btn-buy"
+                                        data-product-id="${p.id}"
+                                        data-product-name="${p.nome}"
+                                        data-product-price="${p.preco}">
+                                    <i class="fas fa-cart-shopping me-1"></i> Comprar Agora
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            grid.innerHTML   = cardsHtml   || '<p class="text-center text-muted col-12">Nenhum produto disponível.</p>';
+            modals.innerHTML = modalsHtml;
+
+            this.setupProductFilter();
+            if (typeof AOS !== 'undefined') AOS.refresh();
+
+        } catch (_) { /* mantém conteúdo estático do HTML se API falhar */ }
     }
 
     _showPaymentComingSoon() {

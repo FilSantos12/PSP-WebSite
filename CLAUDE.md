@@ -110,6 +110,45 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - Texto da seção "Sobre Nós" com história real da empresa
 - Preços reais dos produtos (definidos via admin após Fase 1)
 
+## Acessos do ambiente de desenvolvimento
+
+### Servidor local
+```bash
+cd "D:\Aréa de Trabalho\DEV\PSP-Website"
+php -S localhost:8000
+```
+
+| URL | Descrição |
+|---|---|
+| `http://localhost:8000` | Site principal |
+| `http://localhost:8000/setup.php` | Setup do banco (senha: `psp@setup2025`) |
+| `http://localhost:8000/backend/admin/` | Área administrativa |
+
+### Admin
+| Campo | Valor |
+|---|---|
+| E-mail | `admin@pspart.com.br` |
+| Senha | `admin123` |
+| Alterar senha | Menu lateral → **Senha** |
+
+### ngrok (Mercado Pago em dev local)
+O Mercado Pago exige uma URL pública acessível para `back_urls` e `notification_url` do webhook. Em desenvolvimento local, usar ngrok para expor o servidor.
+
+**Passos:**
+1. Subir o servidor: `php -S localhost:8000`
+2. Em outro terminal: `ngrok http 8000`
+3. Copiar a URL HTTPS gerada (ex: `https://xxxx.ngrok-free.app`)
+4. Atualizar `MP_BASE_URL` em `backend/config/mercadopago.php`:
+```php
+define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
+```
+
+> A URL muda a cada vez que o ngrok é reiniciado — lembrar de atualizar o arquivo.
+
+### Banco de dados
+- Arquivo: `database.db` na raiz do projeto
+- Visualizar: abrir no **DB Browser for SQLite**
+
 ## Preferências
 - Abordagem não agressiva: melhorar sem reescrever seções inteiras
 - Mudanças centralizadas no CSS (não inline styles)
