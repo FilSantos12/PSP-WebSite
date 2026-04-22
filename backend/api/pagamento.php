@@ -68,6 +68,10 @@ try {
             'failure' => MP_BASE_URL . '/?pagamento=recusado&pedido='  . $pedidoId,
             'pending' => MP_BASE_URL . '/?pagamento=pendente&pedido='  . $pedidoId,
         ],
+        'payment_methods' => [
+            'excluded_payment_types' => [],  // nenhum método excluído — PIX, boleto, débito e crédito disponíveis
+            'installments'           => 12,  // máximo de parcelas no cartão
+        ],
         'external_reference'   => (string) $pedidoId,
         'notification_url'     => MP_BASE_URL . '/backend/api/webhook.php',
     ]);

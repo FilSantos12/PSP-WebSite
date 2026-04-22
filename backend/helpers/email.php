@@ -1,0 +1,242 @@
+<?php
+/**
+ * Helpers de envio de e-mail (PHP mail() nativo)
+ * Logs gravados em logs/emails.log para diagnóstico
+ */
+
+function _enviarEmail(string $para, string $assunto, string $corpo): bool {
+    $headers  = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "From: PSPart <noreply@pspart.com.br>\r\n";
+    $headers .= "Reply-To: contato@pspart.com.br\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
+
+    $ok = @mail($para, '=?UTF-8?B?' . base64_encode($assunto) . '?=', $corpo, $headers);
+
+    $logDir  = __DIR__ . '/../../logs';
+    $logFile = $logDir . '/emails.log';
+    if (!is_dir($logDir)) mkdir($logDir, 0755, true);
+    $status = $ok ? 'OK' : 'FALHOU';
+    file_put_contents($logFile,
+        date('Y-m-d H:i:s') . " | {$status} | Para: {$para} | Assunto: {$assunto}\n",
+        FILE_APPEND | LOCK_EX
+    );
+
+    return $ok;
+}
+
+function _statusLabel(string $status): string {
+    return match($status) {
+        'aprovado'    => 'Pagamento Aprovado',
+        'pendente'    => 'Aguardando Pagamento',
+        'em_analise'  => 'Em Análise',
+        'recusado'    => 'Pagamento Recusado',
+        'cancelado'   => 'Pedido Cancelado',
+        'reembolsado' => 'Reembolsado',
+        'contestado'  => 'Em Contestação',
+        default       => ucfirst($status),
+    };
+}
+
+function _statusCor(string $status): string {
+    return match($status) {
+        'aprovado'    => '#1a7a3c',
+        'pendente'    => '#b8860b',
+        'em_analise'  => '#0d6efd',
+        'recusado',
+        'cancelado'   => '#c0392b',
+        default       => '#555',
+    };
+}
+
+function _layoutEmail(string $titulo, string $conteudo): string {
+    return <<<HTML
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,sans-serif;font-size:14px;color:#222;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:30px 0;">
+        <tr><td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+            <!-- Header -->
+            <tr>
+              <td style="background:#274185;padding:28px 32px;text-align:center;">
+                <span style="color:#fff;font-size:22px;font-weight:bold;letter-spacing:1px;">PSPart</span>
+                <br><span style="color:#b0bfe8;font-size:12px;">Partes e Peças Automação</span>
+              </td>
+            </tr>
+            <!-- Título -->
+            <tr>
+              <td style="padding:28px 32px 0 32px;">
+                <h2 style="margin:0 0 6px 0;color:#274185;font-size:18px;">{$titulo}</h2>
+                <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+              </td>
+            </tr>
+            <!-- Conteúdo -->
+            <tr>
+              <td style="padding:0 32px 28px 32px;">
+                {$conteudo}
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f4f6fb;padding:16px 32px;text-align:center;font-size:11px;color:#999;">
+                PSPart - Partes e Peças Automação &nbsp;|&nbsp; filipe@pentasis.com.br<br>
+                Este e-mail foi gerado automaticamente, não é necessário responder.
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+    HTML;
+}
+
+/**
+ * E-mail 1: Pedido recebido (disparado ao criar o pedido)
+ */
+function emailPedidoCriado(array $pedido, array $itens, string $token): void {
+    $baseUrl    = defined('MP_BASE_URL') ? MP_BASE_URL : '';
+    $linkAcomp  = $baseUrl . '/acompanhar.html?pedido=' . $pedido['id'] . '&token=' . $token;
+    $statusLabel = _statusLabel($pedido['status'] ?? 'pendente');
+    $statusCor   = _statusCor($pedido['status'] ?? 'pendente');
+
+    $linhasItens = '';
+    foreach ($itens as $item) {
+        $subtotal     = number_format($item['preco_unitario'] * $item['quantidade'], 2, ',', '.');
+        $preco        = number_format($item['preco_unitario'], 2, ',', '.');
+        $linhasItens .= <<<HTML
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;">{$item['produto_nome']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:center;">{$item['quantidade']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$preco}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$subtotal}</td>
+        </tr>
+        HTML;
+    }
+
+    $total   = number_format($pedido['total'], 2, ',', '.');
+    $nome    = htmlspecialchars($pedido['nome_comprador']);
+    $pedidoId = $pedido['id'];
+    $criado   = $pedido['criado_em'] ?? date('d/m/Y H:i');
+
+    $endereco = implode(', ', array_filter([
+        ($pedido['endereco'] ?? '') . ($pedido['numero'] ? ', ' . $pedido['numero'] : ''),
+        $pedido['complemento'] ?? '',
+        $pedido['bairro'] ?? '',
+        ($pedido['cidade'] ?? '') . ($pedido['estado'] ? '/' . $pedido['estado'] : ''),
+        $pedido['cep'] ?? '',
+    ]));
+
+    $conteudo = <<<HTML
+    <p>Olá, <strong>{$nome}</strong>!</p>
+    <p>Seu pedido foi recebido com sucesso. Assim que o pagamento for confirmado, você receberá outro e-mail.</p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr>
+        <td style="padding:12px;background:#f4f6fb;border-radius:8px;">
+          <strong>Pedido:</strong> #{$pedidoId} &nbsp;&nbsp;
+          <strong>Data:</strong> {$criado} &nbsp;&nbsp;
+          <strong>Status:</strong> <span style="color:{$statusCor};font-weight:bold;">{$statusLabel}</span>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;font-size:13px;">
+      <tr style="background:#f4f6fb;">
+        <th style="padding:8px 0;text-align:left;">Produto</th>
+        <th style="padding:8px 0;text-align:center;">Qtd</th>
+        <th style="padding:8px 0;text-align:right;">Preço unit.</th>
+        <th style="padding:8px 0;text-align:right;">Subtotal</th>
+      </tr>
+      {$linhasItens}
+      <tr>
+        <td colspan="3" style="padding:10px 0;text-align:right;font-weight:bold;">Total:</td>
+        <td style="padding:10px 0;text-align:right;font-weight:bold;color:#274185;">R$ {$total}</td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px;color:#555;margin:4px 0;"><strong>Endereço de entrega:</strong> {$endereco}</p>
+
+    <div style="margin:24px 0;text-align:center;">
+      <a href="{$linkAcomp}" style="background:#274185;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:bold;">
+        Acompanhar Pedido
+      </a>
+    </div>
+
+    <p style="font-size:12px;color:#999;">Se o botão não funcionar, acesse: <a href="{$linkAcomp}">{$linkAcomp}</a></p>
+    HTML;
+
+    _enviarEmail(
+        $pedido['email_comprador'],
+        "Pedido #{$pedidoId} recebido — PSPart",
+        _layoutEmail("Pedido #{$pedidoId} Recebido!", $conteudo)
+    );
+}
+
+/**
+ * E-mail 2: Pagamento aprovado (disparado pelo webhook)
+ */
+function emailPagamentoAprovado(array $pedido, array $itens, string $token): void {
+    $baseUrl   = defined('MP_BASE_URL') ? MP_BASE_URL : '';
+    $linkAcomp = $baseUrl . '/acompanhar.html?pedido=' . $pedido['id'] . '&token=' . $token;
+    $total     = number_format($pedido['total'], 2, ',', '.');
+    $nome      = htmlspecialchars($pedido['nome_comprador']);
+    $pedidoId  = $pedido['id'];
+
+    $linhasItens = '';
+    foreach ($itens as $item) {
+        $subtotal     = number_format($item['preco_unitario'] * $item['quantidade'], 2, ',', '.');
+        $preco        = number_format($item['preco_unitario'], 2, ',', '.');
+        $linhasItens .= <<<HTML
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;">{$item['produto_nome']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:center;">{$item['quantidade']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$preco}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$subtotal}</td>
+        </tr>
+        HTML;
+    }
+
+    $conteudo = <<<HTML
+    <p>Olá, <strong>{$nome}</strong>!</p>
+    <p>
+      <span style="font-size:32px;">✅</span><br>
+      Seu pagamento foi <strong style="color:#1a7a3c;">aprovado</strong>! Estamos preparando seu pedido.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;font-size:13px;">
+      <tr style="background:#f4f6fb;">
+        <th style="padding:8px 0;text-align:left;">Produto</th>
+        <th style="padding:8px 0;text-align:center;">Qtd</th>
+        <th style="padding:8px 0;text-align:right;">Preço unit.</th>
+        <th style="padding:8px 0;text-align:right;">Subtotal</th>
+      </tr>
+      {$linhasItens}
+      <tr>
+        <td colspan="3" style="padding:10px 0;text-align:right;font-weight:bold;">Total pago:</td>
+        <td style="padding:10px 0;text-align:right;font-weight:bold;color:#1a7a3c;">R$ {$total}</td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px;color:#555;">Em breve entraremos em contato para combinar o envio.</p>
+
+    <div style="margin:24px 0;text-align:center;">
+      <a href="{$linkAcomp}" style="background:#274185;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:bold;">
+        Acompanhar Pedido
+      </a>
+    </div>
+
+    <p style="font-size:12px;color:#999;">Se o botão não funcionar, acesse: <a href="{$linkAcomp}">{$linkAcomp}</a></p>
+    HTML;
+
+    _enviarEmail(
+        $pedido['email_comprador'],
+        "Pagamento aprovado — Pedido #{$pedidoId} PSPart",
+        _layoutEmail("Pagamento Aprovado! 🎉", $conteudo)
+    );
+}

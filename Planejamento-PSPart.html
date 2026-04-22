@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="Generator" content="Microsoft Word compatible">
+<style>
+  body {
+    font-family: Calibri, Arial, sans-serif;
+    font-size: 11pt;
+    margin: 2.5cm 3cm;
+    color: #222;
+    line-height: 1.5;
+  }
+  h1 {
+    font-size: 20pt;
+    color: #274185;
+    border-bottom: 3px solid #274185;
+    padding-bottom: 6px;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 14pt;
+    color: #274185;
+    margin-top: 28px;
+    margin-bottom: 6px;
+    border-left: 5px solid #274185;
+    padding-left: 10px;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #333;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+  .subtitulo {
+    font-size: 12pt;
+    color: #555;
+    margin-bottom: 20px;
+  }
+  .data {
+    font-size: 10pt;
+    color: #888;
+    margin-bottom: 30px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px 0;
+    font-size: 10.5pt;
+  }
+  th {
+    background-color: #274185;
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background-color: #f4f6fb;
+  }
+  .badge-ok      { color: #1a7a3c; font-weight: bold; }
+  .badge-pend    { color: #b8860b; font-weight: bold; }
+  .badge-futuro  { color: #555;    font-weight: bold; }
+  .badge-critico { color: #c0392b; font-weight: bold; }
+  .nota {
+    background: #eef2ff;
+    border-left: 4px solid #274185;
+    padding: 10px 14px;
+    margin: 14px 0;
+    font-size: 10.5pt;
+  }
+  .aviso {
+    background: #fff8e1;
+    border-left: 4px solid #f0b429;
+    padding: 10px 14px;
+    margin: 14px 0;
+    font-size: 10.5pt;
+  }
+  ul { margin: 6px 0 10px 0; padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
+  .rodape {
+    font-size: 9pt;
+    color: #aaa;
+    text-align: center;
+    margin-top: 40px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>PSPart — Planejamento do Site / E-commerce</h1>
+<p class="subtitulo">PSPart - Partes e Peças Automação &nbsp;|&nbsp; filipe@pentasis.com.br</p>
+<p class="data">Documento gerado em: 22 de abril de 2026 &nbsp;|&nbsp; Versão 1.0</p>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>1. Visão Geral do Projeto</h2>
+
+<p>
+  O PSPart-Website é um site institucional com e-commerce integrado para venda de peças e componentes de automação.
+  A arquitetura foi projetada para funcionar em hospedagem compartilhada de baixo custo, sem dependências complexas.
+</p>
+
+<table>
+  <tr><th>Item</th><th>Detalhe</th></tr>
+  <tr><td>Tipo</td><td>Site estático + backend PHP com API REST</td></tr>
+  <tr><td>Frontend</td><td>HTML / CSS / JavaScript — Bootstrap 5.3, Font Awesome, AOS</td></tr>
+  <tr><td>Backend</td><td>PHP puro (sem framework)</td></tr>
+  <tr><td>Banco de dados</td><td>SQLite (arquivo .db, compatível com hospedagem compartilhada)</td></tr>
+  <tr><td>Pagamentos</td><td>Mercado Pago — Checkout Pro (redirect)</td></tr>
+  <tr><td>Formulário de contato</td><td>FormSubmit.co → filipe@pentasis.com.br</td></tr>
+  <tr><td>Analytics</td><td>Google Analytics GA4 com Consent Mode v2 (LGPD)</td></tr>
+  <tr><td>CEP automático</td><td>ViaCEP (gratuito, sem cadastro)</td></tr>
+  <tr><td>Hospedagem prevista</td><td>Hospedagem compartilhada com suporte a PHP e SQLite</td></tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>2. O Que Foi Implementado</h2>
+<p>Todas as fases abaixo foram concluídas e estão funcionais no ambiente de desenvolvimento.</p>
+
+<h3>Fase 1 — Banco de Dados</h3>
+<table>
+  <tr><th>Recurso</th><th>Detalhe</th><th>Status</th></tr>
+  <tr><td>Schema SQLite</td><td>Tabelas: produtos, pedidos, itens_pedido, admins</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>setup.php</td><td>Script de criação/migração do banco com senha de proteção</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Dados de exemplo</td><td>6 produtos cadastrados para aprovação de layout</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+</table>
+
+<h3>Fase 2 — Backend PHP / API REST</h3>
+<table>
+  <tr><th>Endpoint</th><th>Função</th><th>Status</th></tr>
+  <tr><td>GET /api/produtos.php</td><td>Lista produtos com filtro de categoria e estoque</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>POST /api/pedidos.php</td><td>Cria pedido com dados do comprador e endereço</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>POST /api/pagamento.php</td><td>Cria preference no MP e retorna init_point</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>POST /api/webhook.php</td><td>Recebe notificações do MP (v1 e IPN) e atualiza status do pedido</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+</table>
+
+<h3>Fase 3 — Integração Mercado Pago</h3>
+<table>
+  <tr><th>Recurso</th><th>Detalhe</th><th>Status</th></tr>
+  <tr><td>Checkout Pro (redirect)</td><td>Redireciona para o ambiente seguro do Mercado Pago</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Métodos de pagamento</td><td>Cartão crédito, débito, boleto, saldo MP, PIX (em produção)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Webhook</td><td>Atualização automática de status dos pedidos</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>back_urls</td><td>Retorno para o site após pagamento (aprovado/recusado/pendente)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Ambiente de testes</td><td>Testado com contas sandbox do MP (crédito e débito confirmados)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+</table>
+
+<h3>Fase 4 — Área Administrativa</h3>
+<table>
+  <tr><th>Recurso</th><th>Detalhe</th><th>Status</th></tr>
+  <tr><td>Login seguro</td><td>Autenticação com e-mail e senha (hash bcrypt)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Dashboard</td><td>Resumo de pedidos, receita e produtos</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>CRUD de produtos</td><td>Criar, editar, excluir produtos com preço, estoque, imagem e categoria</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Gestão de pedidos</td><td>Lista de pedidos com status e detalhe de cada pedido</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Alterar senha</td><td>Troca de senha pelo menu lateral</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+</table>
+
+<h3>Fase 5 — Frontend / E-commerce</h3>
+<table>
+  <tr><th>Recurso</th><th>Detalhe</th><th>Status</th></tr>
+  <tr><td>Catálogo dinâmico</td><td>Produtos carregados via API, gerados automaticamente no HTML</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Filtro de categorias</td><td>Motorização, Robótica, Acesso, Bluetooth</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Modal de produto</td><td>Carousel de imagens, descrição, botão "Comprar Agora"</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Modal de checkout</td><td>Nome, e-mail, telefone, CEP (auto-preenchimento ViaCEP), número, complemento</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Validação inline</td><td>Erros exibidos abaixo de cada campo sem modal de erro</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Controle de estoque</td><td>Botão desabilitado ("Fora de estoque") quando estoque = 0</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Lightbox de imagem</td><td>Overlay para ampliar imagens dos produtos</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Dark mode</td><td>Toggle claro/escuro persistido em localStorage</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>LGPD / Cookies</td><td>Banner de consentimento com Consent Mode v2 (GA4)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>PWA básico</td><td>manifest.json configurado (ícones reais pendentes)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>WhatsApp flutuante</td><td>Botão fixo na tela + botão no hero (número pendente)</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Botão back-to-top</td><td>Retorno suave ao topo da página</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>Contadores animados</td><td>Estatísticas animadas na seção Hero via Intersection Observer</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+  <tr><td>SEO básico</td><td>robots.txt e sitemap.xml configurados</td><td><span class="badge-ok">✔ Concluído</span></td></tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>3. Pendências — O Que Falta Para o Lançamento</h2>
+
+<div class="aviso">
+  ⚠ Estes itens devem ser resolvidos <strong>antes de colocar o site em produção</strong>.
+</div>
+
+<table>
+  <tr><th>Item</th><th>Onde</th><th>Detalhe</th><th>Prioridade</th></tr>
+  <tr>
+    <td>Número do WhatsApp</td>
+    <td>index.html (2 locais)</td>
+    <td>Substituir <code>SEU_NUMERO</code> pelo número real no botão hero e no botão flutuante</td>
+    <td><span class="badge-critico">🔴 Crítico</span></td>
+  </tr>
+  <tr>
+    <td>Credenciais de produção do MP</td>
+    <td>backend/config/mercadopago.php</td>
+    <td>Trocar Access Token de sandbox pelo token de produção antes do deploy</td>
+    <td><span class="badge-critico">🔴 Crítico</span></td>
+  </tr>
+  <tr>
+    <td>URL base de produção</td>
+    <td>backend/config/mercadopago.php</td>
+    <td>Atualizar MP_BASE_URL com o domínio real do site (sem ngrok)</td>
+    <td><span class="badge-critico">🔴 Crítico</span></td>
+  </tr>
+  <tr>
+    <td>Preços reais dos produtos</td>
+    <td>Área admin → Produtos</td>
+    <td>Os preços atuais são exemplos de layout; definir valores reais via admin</td>
+    <td><span class="badge-critico">🔴 Crítico</span></td>
+  </tr>
+  <tr>
+    <td>Texto "Sobre Nós"</td>
+    <td>index.html — seção #sobre</td>
+    <td>Substituir texto placeholder pela história real da empresa</td>
+    <td><span class="badge-pend">🟡 Importante</span></td>
+  </tr>
+  <tr>
+    <td>Imagens reais dos produtos</td>
+    <td>Área admin → Produtos</td>
+    <td>Substituir imagens de exemplo por fotos reais dos produtos</td>
+    <td><span class="badge-pend">🟡 Importante</span></td>
+  </tr>
+  <tr>
+    <td>Ícones PWA</td>
+    <td>manifest.json</td>
+    <td>Criar ícones reais 192×192 e 512×512 PNG com a identidade visual da PSPart</td>
+    <td><span class="badge-pend">🟡 Importante</span></td>
+  </tr>
+  <tr>
+    <td>Proteção do setup.php</td>
+    <td>setup.php (raiz)</td>
+    <td>Remover ou restringir o acesso ao script de setup após o deploy</td>
+    <td><span class="badge-pend">🟡 Importante</span></td>
+  </tr>
+  <tr>
+    <td>Alterar senha do admin</td>
+    <td>Área admin → Senha</td>
+    <td>Trocar a senha padrão <code>admin123</code> antes do deploy</td>
+    <td><span class="badge-critico">🔴 Crítico</span></td>
+  </tr>
+  <tr>
+    <td>Teste PIX em produção</td>
+    <td>Fluxo de compra</td>
+    <td>PIX não aparece no sandbox do MP — validar em produção com R$ 0,01</td>
+    <td><span class="badge-pend">🟡 Importante</span></td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>4. Melhorias de Curto Prazo (Pós-lançamento)</h2>
+<p>Itens que agregam valor sem grande complexidade e podem ser feitos logo após o lançamento.</p>
+
+<table>
+  <tr><th>Melhoria</th><th>Benefício</th><th>Complexidade</th></tr>
+  <tr>
+    <td>E-mail de confirmação de pedido</td>
+    <td>Comprador recebe comprovante automático após a compra</td>
+    <td>Baixa — via FormSubmit ou PHP mail()</td>
+  </tr>
+  <tr>
+    <td>Página de status do pedido</td>
+    <td>Cliente pode consultar o status pelo número do pedido sem precisar de cadastro</td>
+    <td>Baixa — nova página + endpoint GET</td>
+  </tr>
+  <tr>
+    <td>Política de privacidade e termos de uso</td>
+    <td>Obrigação legal (LGPD) e confiança do consumidor</td>
+    <td>Baixa — conteúdo + modal ou página dedicada</td>
+  </tr>
+  <tr>
+    <td>Carrinho de compras</td>
+    <td>Comprador pode adicionar vários produtos antes de finalizar</td>
+    <td>Média — refatoração do checkout e API de pedidos</td>
+  </tr>
+  <tr>
+    <td>Busca de produtos</td>
+    <td>Facilita encontrar produtos quando o catálogo crescer</td>
+    <td>Baixa — filtro client-side no JS já existente</td>
+  </tr>
+  <tr>
+    <td>Paginação ou scroll infinito no catálogo</td>
+    <td>Necessário quando houver muitos produtos</td>
+    <td>Média — paginação na API + frontend</td>
+  </tr>
+  <tr>
+    <td>Galeria de múltiplas imagens por produto</td>
+    <td>Apresentação mais profissional dos produtos</td>
+    <td>Média — nova tabela no banco + upload múltiplo no admin</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>5. Roadmap Futuro (Médio / Longo Prazo)</h2>
+<p>Funcionalidades que aumentam a escalabilidade e a competitividade, mas exigem mais investimento.</p>
+
+<h3>5.1 Logística e Frete</h3>
+<table>
+  <tr><th>Opção</th><th>Descrição</th><th>Custo</th></tr>
+  <tr>
+    <td>Frete manual (atual)</td>
+    <td>Combinado por WhatsApp/e-mail após a compra — simples e sem integração</td>
+    <td>Grátis</td>
+  </tr>
+  <tr>
+    <td>Melhor Envio</td>
+    <td>API gratuita — calcula frete em tempo real (Correios + transportadoras), gera etiqueta automaticamente. Recomendado quando o volume de pedidos crescer.</td>
+    <td>Grátis (comissão por envio)</td>
+  </tr>
+  <tr>
+    <td>Correios API</td>
+    <td>Integração direta com SEDEX/PAC para cálculo de frete no checkout</td>
+    <td>Grátis (requer contrato com Correios)</td>
+  </tr>
+</table>
+
+<div class="nota">
+  💡 O Mercado Envios (Mercado Livre) <strong>não está disponível</strong> para lojas externas — funciona apenas dentro do marketplace do ML.
+</div>
+
+<h3>5.2 Cadastro de Clientes</h3>
+<table>
+  <tr><th>Recurso</th><th>Benefício</th></tr>
+  <tr><td>Criação de conta</td><td>Cliente salva endereço e histórico de pedidos</td></tr>
+  <tr><td>Login social (Google)</td><td>Reduz fricção no cadastro</td></tr>
+  <tr><td>Recompra com 1 clique</td><td>Dados já preenchidos, processo mais rápido</td></tr>
+</table>
+
+<h3>5.3 Marketing e Conversão</h3>
+<table>
+  <tr><th>Recurso</th><th>Benefício</th></tr>
+  <tr><td>Cupons de desconto</td><td>Ações promocionais e fidelização</td></tr>
+  <tr><td>Lista de desejos / favoritos</td><td>Retorno do cliente ao site</td></tr>
+  <tr><td>Avaliações de produtos</td><td>Prova social, aumenta conversão</td></tr>
+  <tr><td>Newsletter (e-mail marketing)</td><td>Comunicação direta com clientes</td></tr>
+  <tr><td>WhatsApp Business API</td><td>Notificações automáticas de pedido pelo WhatsApp</td></tr>
+</table>
+
+<h3>5.4 Infraestrutura</h3>
+<table>
+  <tr><th>Recurso</th><th>Benefício</th><th>Quando considerar</th></tr>
+  <tr>
+    <td>Migrar SQLite → MySQL/PostgreSQL</td>
+    <td>Melhor performance e concorrência em alto volume</td>
+    <td>Quando ultrapassar ~500 pedidos/mês</td>
+  </tr>
+  <tr>
+    <td>CDN para imagens</td>
+    <td>Carregamento mais rápido das imagens dos produtos</td>
+    <td>Quando o banco de imagens crescer</td>
+  </tr>
+  <tr>
+    <td>Hospedagem VPS/Cloud</td>
+    <td>Mais controle, performance e segurança</td>
+    <td>Quando o volume justificar o custo</td>
+  </tr>
+  <tr>
+    <td>Mercado Pago Checkout Transparente (Bricks)</td>
+    <td>Comprador não sai do site para pagar — melhor conversão</td>
+    <td>Quando houver equipe/recurso para manutenção contínua</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2>6. Resumo Executivo</h2>
+
+<table>
+  <tr><th>Dimensão</th><th>Status</th></tr>
+  <tr><td>Infraestrutura técnica</td><td><span class="badge-ok">✔ 100% pronta</span></td></tr>
+  <tr><td>Pagamentos (MP Checkout Pro)</td><td><span class="badge-ok">✔ Funcionando em sandbox</span></td></tr>
+  <tr><td>Área administrativa</td><td><span class="badge-ok">✔ Funcionando</span></td></tr>
+  <tr><td>Conteúdo real (textos, preços, imagens)</td><td><span class="badge-pend">⏳ Pendente</span></td></tr>
+  <tr><td>Configurações de produção</td><td><span class="badge-pend">⏳ Pendente</span></td></tr>
+  <tr><td>Logística de entrega</td><td><span class="badge-pend">⏳ Definir modelo</span></td></tr>
+  <tr><td>Lançamento em produção</td><td><span class="badge-pend">⏳ Aguardando pendências acima</span></td></tr>
+</table>
+
+<div class="nota">
+  <strong>Estimativa para lançamento:</strong> Com os dados reais em mãos (textos, preços, imagens, número de WhatsApp),
+  o site pode ir ao ar em <strong>1 a 2 dias</strong> — apenas configurações e preenchimento de conteúdo.
+</div>
+
+<hr>
+<p class="rodape">PSPart - Partes e Peças Automação &nbsp;|&nbsp; Documento gerado em 22/04/2026 &nbsp;|&nbsp; Uso interno</p>
+
+</body>
+</html>

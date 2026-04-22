@@ -7,6 +7,7 @@
 require_once __DIR__ . '/_core.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../config/mercadopago.php';
+require_once __DIR__ . '/../helpers/email.php';
 
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
@@ -32,8 +33,17 @@ file_put_contents($logFile, date('Y-m-d H:i:s') . ' | ' . $payload . PHP_EOL, FI
 // ── Processa a notificação ───────────────────────────────────────────────────
 $data = json_decode($payload, true);
 
-$tipo = $data['type'] ?? ($_GET['type'] ?? '');
-$id   = $data['data']['id'] ?? ($_GET['data_id'] ?? '');
+// Suporta formato v1 (type/data.id) e formato IPN antigo (topic/resource)
+$tipo = $data['type'] ?? $data['topic'] ?? ($_GET['type'] ?? ($_GET['topic'] ?? ''));
+$id   = $data['data']['id'] ?? ($_GET['data_id'] ?? null);
+
+// Formato IPN: resource é o ID numérico do pagamento
+if (!$id && isset($data['resource']) && is_numeric($data['resource'])) {
+    $id = $data['resource'];
+}
+if (!$id && isset($_GET['id']) && is_numeric($_GET['id'])) {
+    $id = $_GET['id'];
+}
 
 if ($tipo !== 'payment' || !$id) {
     http_response_code(200);
@@ -66,8 +76,34 @@ try {
     $novoStatus = $statusMap[$pagamento->status] ?? 'pendente';
 
     $pdo = getDB();
+
+    // Busca status atual antes de atualizar (para não re-enviar e-mail)
+    $pedidoAtual = $pdo->prepare("SELECT status FROM pedidos WHERE id = :id");
+    $pedidoAtual->execute([':id' => $pedidoId]);
+    $statusAnterior = $pedidoAtual->fetchColumn();
+
     $pdo->prepare("UPDATE pedidos SET status = :status WHERE id = :id")
         ->execute([':status' => $novoStatus, ':id' => $pedidoId]);
+
+    // Envia e-mail de pagamento aprovado apenas na primeira transição
+    if ($novoStatus === 'aprovado' && $statusAnterior !== 'aprovado') {
+        $stmtP = $pdo->prepare("SELECT * FROM pedidos WHERE id = :id");
+        $stmtP->execute([':id' => $pedidoId]);
+        $pedido = $stmtP->fetch(PDO::FETCH_ASSOC);
+
+        $stmtI = $pdo->prepare("
+            SELECT ip.quantidade, ip.preco_unitario, pr.nome AS produto_nome
+            FROM itens_pedido ip
+            JOIN produtos pr ON pr.id = ip.produto_id
+            WHERE ip.pedido_id = :id
+        ");
+        $stmtI->execute([':id' => $pedidoId]);
+        $itens = $stmtI->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($pedido && !empty($itens)) {
+            emailPagamentoAprovado($pedido, $itens, $pedido['token_acompanhamento'] ?? '');
+        }
+    }
 
 } catch (Exception $e) {
     file_put_contents($logFile, date('Y-m-d H:i:s') . ' | ERRO: ' . $e->getMessage() . PHP_EOL, FILE_APPEND | LOCK_EX);
