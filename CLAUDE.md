@@ -18,6 +18,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 ## Stack
 - Bootstrap 5.3, Font Awesome 6.4, AOS 2.3 (CDN)
 - Google Fonts: Poppins + Montserrat
+- **marked.js** (CDN) — renderiza Markdown da Especificação Técnica no frontend
 - FormSubmit.co (formulário sem backend) → filipe@pentasis.com.br
 - Google Analytics GA4: `G-XQBJ002YQC` com Consent Mode v2 (LGPD)
 
@@ -50,7 +51,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | Trava Eletrônica (Mitra) | `acesso` | 5 | R$ 219,90 |
 | Trava Eletrônica BLE | `bluetooth` | 6 | R$ 329,90 |
 
-> **Os preços acima são exemplos para aprovação de layout.** Os valores reais serão definidos via área admin após integração com o banco de dados (Fase 1).
+> **Os preços acima são exemplos para aprovação de layout.** Os valores reais serão definidos via área admin após integração com o banco de dados.
 
 ## E-mails transacionais (`backend/helpers/email.php`)
 - `emailPedidoCriado($pedido, $itens, $token)` — disparado em `pedidos.php` ao criar o pedido; inclui link de acompanhamento
@@ -106,6 +107,102 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 --shadow-sm / --shadow-md / --radius: 12px
 ```
 
+## Schema do banco (SQLite — `database.db`)
+
+### Tabela `produtos`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| id | INTEGER PK | |
+| nome | TEXT NOT NULL | |
+| descricao | TEXT | |
+| preco | REAL | |
+| categoria | TEXT | motorizacao / robotica / acesso / bluetooth |
+| imagem | TEXT | campo legado — fallback quando `produto_imagens` estiver vazio |
+| estoque | INTEGER | |
+| ativo | INTEGER | 0 ou 1 |
+| codigo_interno | TEXT | formato `SE.02.00002` — único, opcional |
+| datasheet | TEXT | caminho relativo ex: `docs/ds_1_xxx.pdf` |
+| especificacao_tecnica | TEXT | conteúdo em Markdown |
+| criado_em | TEXT | |
+
+### Tabela `produto_imagens`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| id | INTEGER PK | |
+| produto_id | INTEGER FK | ON DELETE CASCADE |
+| caminho | TEXT | ex: `img/prod_1_xxx.png` |
+| ordem | INTEGER | usado para ordenação (drag-and-drop no admin) |
+| principal | INTEGER | 1 = imagem principal (thumbnail) |
+| criado_em | TEXT | |
+
+### Tabela `pedidos`
+- id, nome/email/telefone_comprador, endereço completo, total, status, mp_preferencia_id, token_acompanhamento, criado_em
+
+### Tabela `itens_pedido`
+- id, pedido_id (CASCADE), produto_id (RESTRICT), quantidade, preco_unitario
+
+### Tabela `usuarios`
+- id, nome, email (UNIQUE), senha_hash, ativo
+
+## Módulo Admin de Produtos
+
+### Arquivos admin relevantes
+| Arquivo | Função |
+|---|---|
+| `backend/admin/produtos.php` | Listagem — usa subquery para pegar imagem principal de `produto_imagens` com fallback para `imagem` legado; cache busting via `?v=filemtime()` |
+| `backend/admin/produto-novo.php` | Criação em duas fases na mesma página — fase 1: formulário; fase 2 (após salvar): seção de imagens múltiplas com AJAX + SortableJS |
+| `backend/admin/produto-editar.php` | Edição — inclui EasyMDE + gerenciamento de imagens múltiplas via AJAX |
+| `backend/admin/ajax-imagens.php` | AJAX para imagens: `upload`, `set-principal`, `reorder`, `delete` |
+| `backend/admin/_layout.php` | Layout base — aceita `$extra_head` como segundo parâmetro para injetar CSS no `<head>` |
+
+### Fluxo de produto-novo.php
+Página em duas fases sem redirect entre elas:
+- **Fase 1 (GET ou POST com erro):** formulário completo com todos os campos, incluindo EasyMDE para especificação técnica
+- **Fase 2 (POST com sucesso):** `$produtoCriado` recebe o `lastInsertId()`; o formulário é substituído por banner de confirmação + seção de imagens idêntica à de editar; links "Criar outro produto" e "Ver todos os produtos"
+- EasyMDE só é carregado na fase 1 (não desperdiça CDN na fase 2)
+
+### Campo Código Interno
+- Formato fixo: `SE.02.00002` (2 letras maiúsculas + ponto + 2 dígitos + ponto + 5 dígitos)
+- Regex backend: `/^[A-Z]{2}\.\d{2}\.\d{5}$/`
+- Validação de unicidade via SELECT antes de INSERT/UPDATE
+- Auto-uppercase no input; validação visual `is-invalid` no blur
+
+### Upload de Data Sheet (PDF)
+- Armazenado em `docs/ds_{produto_id}_{uniqid}.pdf`
+- Diretório `docs/` criado automaticamente na primeira vez
+- Validação MIME via `finfo` + limite de 10 MB
+- Admin: visualizar PDF atual, remover (checkbox) ou substituir
+- Frontend: botão "Data Sheet" no footer do modal de produto
+
+### Múltiplas Imagens (`produto_imagens`)
+- AJAX via `backend/admin/ajax-imagens.php`
+- Drag-and-drop para reordenar usando **SortableJS** (CDN)
+- Primeira imagem enviada é automaticamente a principal (estrela dourada)
+- Ao deletar a principal, a próxima na ordem assume automaticamente
+- Validação MIME real (`finfo`) + limite 5 MB por imagem
+- Imagens armazenadas em `img/prod_{produto_id}_{uniqid}.{ext}`
+- **Importante**: ao deletar um produto via `produto-excluir.php`, os registros em `produto_imagens` são removidos por CASCADE, mas os arquivos físicos em `img/` ficam órfãos (não são deletados automaticamente)
+
+### Especificação Técnica
+- Campo Markdown editado com **EasyMDE** (CDN) no admin
+- Toolbar: negrito, itálico, listas, preview
+- Renderizado com **marked.js** no frontend dentro do modal de detalhes do produto
+- Campo opcional (NULL permitido no banco)
+
+### API de Produtos (`backend/api/produtos.php`)
+Retorna por produto: `id`, `nome`, `descricao`, `preco`, `categoria`, `imagem`, `estoque`, `codigo_interno`, `datasheet`, `especificacao_tecnica`, `imagens[]`
+
+O array `imagens` contém objetos `{caminho, ordem, principal}` ordenados por `ordem ASC`.
+
+### renderProducts() — lógica de imagem no frontend
+```javascript
+// Prioridade: imagem principal de produto_imagens → qualquer imagem do array → campo legado imagem
+const imgPrincipal = imagens.find(img => img.principal) || imagens[0];
+const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
+
+// Modal: carousel Bootstrap se imagens.length > 1, imagem simples se = 1
+```
+
 ## Roadmap de e-commerce (planejado)
 | Fase | Descrição | Status |
 |---|---|---|
@@ -115,6 +212,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | Fase 3 | Integração Mercado Pago Checkout Pro | ✅ Concluído |
 | Fase 4 | Área Admin (dashboard, CRUD produtos, pedidos, login) | ✅ Concluído |
 | Fase 6 | Acompanhamento de pedido — página + e-mails transacionais | ✅ Concluído |
+| Fase 7 | Admin produtos: código interno, data sheet, múltiplas imagens, especificação técnica | ✅ Concluído |
 
 ## Decisões técnicas
 - **Backend:** PHP (familiaridade do desenvolvedor)
@@ -128,6 +226,11 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - **E-mail via `mail()` nativo:** sem dependência externa; compatível com hospedagem compartilhada; não funciona em localhost
 - **Token de acompanhamento:** `bin2hex(random_bytes(16))` — 32 chars hex, gerado na criação do pedido, armazenado em `pedidos.token_acompanhamento`; permite acesso direto sem login
 - **PIX em sandbox:** não aparece no Checkout Pro de teste — limitação do MP; validar em produção com R$ 0,01
+- **Campo `imagem` (legado):** mantido na tabela `produtos` para compatibilidade com produtos do seed; não é mais editável pelo admin — gerenciamento exclusivo via `produto_imagens`
+- **Cache busting de imagens no admin:** `?v=filemtime()` — parâmetro muda apenas quando o arquivo no disco é alterado
+- **EasyMDE + marked.js:** usados respectivamente no admin (edição Markdown) e no frontend (renderização); ambos via CDN, sem build process
+- **SortableJS:** drag-and-drop para reordenação de imagens no admin; CDN carregado em `produto-editar.php` e na fase 2 de `produto-novo.php`
+- **Migrations via sqlite3 CLI:** colunas adicionadas após o setup inicial (`especificacao_tecnica`) foram aplicadas diretamente com `sqlite3 database.db "ALTER TABLE produtos ADD COLUMN ..."` — não requerem re-executar setup.php
 
 ## Placeholders pendentes (necessários antes do deploy)
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)
@@ -173,6 +276,7 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 ```
 
 > A URL muda a cada vez que o ngrok é reiniciado — lembrar de atualizar o arquivo.
+> Conta ngrok configurada para: Filipe Rodrigues dos Santos (Plan: Free)
 
 ### Banco de dados
 - Arquivo: `database.db` na raiz do projeto
