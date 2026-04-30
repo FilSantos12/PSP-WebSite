@@ -364,27 +364,38 @@ class App {
         });
 
         // Limpa estado de erro ao digitar
-        ['checkout-nome', 'checkout-email', 'checkout-telefone'].forEach(id => {
+        ['checkout-nome', 'checkout-email', 'checkout-telefone', 'checkout-cep', 'checkout-numero'].forEach(id => {
             document.getElementById(id)?.addEventListener('input', () => {
                 document.getElementById(id)?.classList.remove('is-invalid');
             });
         });
 
+        // Máscara de CEP (00000-000)
+        document.getElementById('checkout-cep')?.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+            e.target.value = v;
+        });
+
+        // Busca ViaCEP ao sair do campo ou clicar no botão
+        const buscarCep = () => this._buscarCep();
+        document.getElementById('checkout-cep')?.addEventListener('blur', buscarCep);
+        document.getElementById('checkout-cep-btn')?.addEventListener('click', buscarCep);
+
         // Submissão do checkout
         document.getElementById('checkout-submit')?.addEventListener('click', async () => {
-            const fields = [
+            const required = [
                 { id: 'checkout-nome',     value: document.getElementById('checkout-nome')?.value.trim() },
                 { id: 'checkout-email',    value: document.getElementById('checkout-email')?.value.trim() },
-                { id: 'checkout-telefone', value: document.getElementById('checkout-telefone')?.value.trim() }
+                { id: 'checkout-telefone', value: document.getElementById('checkout-telefone')?.value.trim() },
+                { id: 'checkout-cep',      value: document.getElementById('checkout-cep')?.value.replace(/\D/g,'') },
+                { id: 'checkout-numero',   value: document.getElementById('checkout-numero')?.value.trim() },
             ];
 
             let valid = true;
-            fields.forEach(({ id, value }) => {
+            required.forEach(({ id, value }) => {
                 const el = document.getElementById(id);
-                if (!value) {
-                    el.classList.add('is-invalid');
-                    valid = false;
-                }
+                if (!value) { el.classList.add('is-invalid'); valid = false; }
             });
 
             if (!valid) {
@@ -397,21 +408,33 @@ class App {
 
             const qty = parseInt(document.getElementById('checkout-qty').value) || 1;
 
+            const g = id => document.getElementById(id)?.value.trim() ?? '';
+
             try {
                 // 1. Grava o pedido no banco
                 const rPedido = await fetch('backend/api/pedidos.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        nome_comprador:     fields[0].value,
-                        email_comprador:    fields[1].value,
-                        telefone_comprador: fields[2].value,
+                        nome_comprador:     g('checkout-nome'),
+                        email_comprador:    g('checkout-email'),
+                        telefone_comprador: g('checkout-telefone'),
+                        cep:                g('checkout-cep'),
+                        endereco:           g('checkout-endereco'),
+                        numero:             g('checkout-numero'),
+                        complemento:        g('checkout-complemento'),
+                        bairro:             g('checkout-bairro'),
+                        cidade:             g('checkout-cidade'),
+                        estado:             g('checkout-estado'),
                         produto_id:         this._checkoutProductId,
                         quantidade:         qty,
                     }),
                 });
 
-                if (!rPedido.ok) throw new Error('Erro ao criar pedido.');
+                if (!rPedido.ok) {
+                    const err = await rPedido.json().catch(() => ({}));
+                    throw new Error(err.erro || 'Erro ao criar pedido.');
+                }
                 const pedido = await rPedido.json();
 
                 // 2. Fecha checkout e exibe spinner
@@ -430,17 +453,55 @@ class App {
                 const mp = await rPagamento.json();
 
                 // 4. Redireciona para o Mercado Pago
-                if (mp.sandbox_url) {
-                    window.location.href = mp.sandbox_url;
+                const mpUrl = mp.init_point || mp.sandbox_url;
+                if (mpUrl) {
+                    window.location.href = mpUrl;
                 }
 
             } catch (err) {
                 console.error('Checkout error:', err);
                 submitBtn.disabled = false;
                 bootstrap.Modal.getInstance(document.getElementById('paymentRedirectModal'))?.hide();
-                setTimeout(() => this._showPaymentComingSoon(), 400);
+
+                // Mostra o erro no topo do modal de checkout
+                const alertEl = document.getElementById('checkout-error-msg');
+                if (alertEl) {
+                    alertEl.textContent = err.message || 'Erro inesperado. Tente novamente.';
+                    alertEl.classList.remove('d-none');
+                    setTimeout(() => alertEl.classList.add('d-none'), 6000);
+                }
             }
         });
+    }
+
+    async _buscarCep() {
+        const cepEl = document.getElementById('checkout-cep');
+        const cep   = cepEl?.value.replace(/\D/g, '');
+        if (!cep || cep.length !== 8) return;
+
+        const btn = document.getElementById('checkout-cep-btn');
+        if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const r    = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            const data = await r.json();
+
+            if (data.erro) {
+                cepEl.classList.add('is-invalid');
+                cepEl.nextElementSibling?.nextElementSibling || (cepEl.closest('.col-sm-5')?.querySelector('.invalid-feedback') && (cepEl.closest('.col-sm-5').querySelector('.invalid-feedback').textContent = 'CEP não encontrado.'));
+            } else {
+                document.getElementById('checkout-endereco').value = data.logradouro || '';
+                document.getElementById('checkout-bairro').value   = data.bairro     || '';
+                document.getElementById('checkout-cidade').value   = data.localidade || '';
+                document.getElementById('checkout-estado').value   = data.uf         || '';
+                cepEl.classList.remove('is-invalid');
+                document.getElementById('checkout-numero')?.focus();
+            }
+        } catch (_) {
+            // falha silenciosa — usuário pode preencher manualmente
+        } finally {
+            if (btn) btn.innerHTML = '<i class="fas fa-search"></i>';
+        }
     }
 
     _openCheckoutModal(productName, price, withDelay) {
@@ -449,7 +510,10 @@ class App {
         this._updateCheckoutTotal(price, 1);
 
         // Limpa campos e erros anteriores
-        ['checkout-nome', 'checkout-email', 'checkout-telefone'].forEach(id => {
+        const allFields = ['checkout-nome','checkout-email','checkout-telefone',
+                           'checkout-cep','checkout-numero','checkout-complemento',
+                           'checkout-endereco','checkout-bairro','checkout-cidade','checkout-estado'];
+        allFields.forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.value = ''; el.classList.remove('is-invalid'); }
         });
@@ -534,14 +598,64 @@ class App {
             produtos.forEach((p, i) => {
                 const label  = categoryLabels[p.categoria] || p.categoria;
                 const preco  = p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                const imgSrc = p.imagem || '';
+                const delay  = (i % 3) * 100;
+
+                // Imagem principal: prioriza array imagens, cai para campo imagem legado
+                const imagens     = Array.isArray(p.imagens) ? p.imagens : [];
+                const imgPrincipal = imagens.find(img => img.principal) || imagens[0];
+                const imgSrc      = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
+
                 const imgTag = imgSrc
                     ? `<img src="${imgSrc}" class="card-img-top" alt="${p.nome}" loading="lazy">`
                     : `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height:180px"><i class="fas fa-image fa-3x text-muted"></i></div>`;
-                const modalImg = imgSrc
-                    ? `<img src="${imgSrc}" class="modal-product-image" alt="${p.nome}" loading="lazy">`
+
+                // Área de mídia do modal: carousel se múltiplas imagens, senão imagem simples
+                let modalMedia;
+                if (imagens.length > 1) {
+                    const carouselId = `carousel-prod-${p.id}`;
+                    const slides = imagens.map((img, idx) => `
+                        <div class="carousel-item ${idx === 0 ? 'active' : ''}">
+                            <img src="${img.caminho}" class="d-block w-100 carousel-img" alt="${p.nome}" loading="lazy"
+                                 style="max-height:280px;object-fit:contain;background:#f8f9fa;border-radius:6px;">
+                        </div>`).join('');
+                    const indicators = imagens.map((_, idx) => `
+                        <button type="button" data-bs-target="#${carouselId}" data-bs-slide-to="${idx}"
+                                class="${idx === 0 ? 'active' : ''}" style="background-color:#274185"></button>`).join('');
+                    modalMedia = `
+                        <div id="${carouselId}" class="carousel slide" data-bs-ride="false">
+                            <div class="carousel-indicators">${indicators}</div>
+                            <div class="carousel-inner">${slides}</div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon"></span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+                                <span class="carousel-control-next-icon"></span>
+                            </button>
+                        </div>`;
+                } else if (imgSrc) {
+                    modalMedia = `<img src="${imgSrc}" class="modal-product-image" alt="${p.nome}" loading="lazy">`;
+                } else {
+                    modalMedia = '';
+                }
+
+                // Código interno
+                const codigoHtml = p.codigo_interno
+                    ? `<div class="text-muted small mb-2"><i class="fas fa-barcode me-1"></i>${p.codigo_interno}</div>`
                     : '';
-                const delay = (i % 3) * 100;
+
+                // Link data sheet
+                const datasheetHtml = p.datasheet
+                    ? `<a href="${p.datasheet}" target="_blank" class="btn btn-sm btn-outline-secondary me-1">
+                           <i class="fas fa-file-pdf me-1 text-danger"></i> Data Sheet
+                       </a>`
+                    : '';
+
+                // Especificação técnica (Markdown → HTML)
+                const especHtml = p.especificacao_tecnica && typeof marked !== 'undefined'
+                    ? `<hr class="my-3">
+                       <h6 class="fw-semibold mb-2"><i class="fas fa-list-ul me-1 text-muted"></i> Especificação Técnica</h6>
+                       <div class="spec-content small">${marked.parse(p.especificacao_tecnica)}</div>`
+                    : '';
 
                 cardsHtml += `
                 <div class="col-md-4 mb-4 product-col" data-category="${p.categoria}" data-aos="fade-up" data-aos-delay="${delay}">
@@ -558,13 +672,17 @@ class App {
                                             data-bs-toggle="modal" data-bs-target="#productModal${p.id}">
                                         Detalhes
                                     </button>
-                                    <button type="button" class="btn btn-success btn-sm btn-buy"
-                                            data-product-id="${p.id}"
-                                            data-product-name="${p.nome}"
-                                            data-product-price="${p.preco}"
-                                            title="Comprar">
-                                        <i class="fas fa-cart-shopping"></i>
-                                    </button>
+                                    ${p.estoque > 0
+                                        ? `<button type="button" class="btn btn-success btn-sm btn-buy"
+                                                data-product-id="${p.id}"
+                                                data-product-name="${p.nome}"
+                                                data-product-price="${p.preco}"
+                                                title="Comprar">
+                                            <i class="fas fa-cart-shopping"></i>
+                                           </button>`
+                                        : `<button type="button" class="btn btn-secondary btn-sm" disabled title="Sem estoque">
+                                            <i class="fas fa-ban"></i>
+                                           </button>`}
                                 </div>
                             </div>
                         </div>
@@ -581,29 +699,36 @@ class App {
                             </div>
                             <div class="modal-body">
                                 <div class="row">
-                                    <div class="col-md-6 modal-image-container">${modalImg}</div>
+                                    <div class="col-md-6 modal-image-container">${modalMedia}</div>
                                     <div class="col-md-6">
                                         <h4>${p.nome}</h4>
+                                        ${codigoHtml}
                                         <span class="product-badge badge-${p.categoria} mb-2 d-inline-block">${label}</span>
                                         <p>${p.descricao || ''}</p>
                                         ${p.estoque > 0
                                             ? `<span class="badge bg-success">Em estoque (${p.estoque} un.)</span>`
                                             : `<span class="badge bg-danger">Fora de estoque</span>`}
+                                        ${especHtml}
                                     </div>
                                 </div>
                             </div>
                             <div class="modal-footer">
                                 <span class="me-auto product-price-modal">${preco}</span>
+                                ${datasheetHtml}
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                                 <button type="button" class="btn btn-outline-primary solicitar-orcamento" data-product="${p.nome}">
                                     Solicitar Orçamento
                                 </button>
-                                <button type="button" class="btn btn-success btn-buy"
-                                        data-product-id="${p.id}"
-                                        data-product-name="${p.nome}"
-                                        data-product-price="${p.preco}">
-                                    <i class="fas fa-cart-shopping me-1"></i> Comprar Agora
-                                </button>
+                                ${p.estoque > 0
+                                    ? `<button type="button" class="btn btn-success btn-buy"
+                                            data-product-id="${p.id}"
+                                            data-product-name="${p.nome}"
+                                            data-product-price="${p.preco}">
+                                        <i class="fas fa-cart-shopping me-1"></i> Comprar Agora
+                                       </button>`
+                                    : `<button type="button" class="btn btn-secondary" disabled>
+                                        <i class="fas fa-ban me-1"></i> Fora de estoque
+                                       </button>`}
                             </div>
                         </div>
                     </div>

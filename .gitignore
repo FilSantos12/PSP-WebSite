@@ -3,6 +3,13 @@ database.db
 database.db-shm
 database.db-wal
 
+# Uploads gerados pelo admin (imagens e data sheets de produtos)
+img/prod_*
+docs/
+
+# Config gerada em runtime na raiz
+config/
+
 # Configurações sensíveis
 config/mercadopago.php
 backend/config/mercadopago.php

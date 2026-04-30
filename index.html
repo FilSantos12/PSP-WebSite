@@ -1092,7 +1092,7 @@
 
     <!-- Modal de Checkout -->
     <div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="checkoutModalLabel">
@@ -1101,6 +1101,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="checkout-error-msg" class="alert alert-danger d-none py-2 small mb-3"></div>
                     <!-- Resumo do produto -->
                     <div class="checkout-product-summary mb-4">
                         <div class="d-flex align-items-center gap-3">
@@ -1135,10 +1136,49 @@
                             <input type="email" class="form-control" id="checkout-email" placeholder="seu@email.com" required>
                             <div class="invalid-feedback">Informe um e-mail válido.</div>
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label for="checkout-telefone" class="form-label fw-semibold">Telefone / WhatsApp *</label>
                             <input type="tel" class="form-control" id="checkout-telefone" placeholder="(00) 00000-0000" required>
                             <div class="invalid-feedback">Informe seu telefone ou WhatsApp.</div>
+                        </div>
+
+                        <hr class="my-3">
+                        <p class="fw-semibold mb-3 text-muted small"><i class="fas fa-truck me-1"></i>Endereço de entrega</p>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-5">
+                                <label for="checkout-cep" class="form-label fw-semibold">CEP *</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="checkout-cep" placeholder="00000-000" maxlength="9" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="checkout-cep-btn" title="Buscar CEP">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                                <div class="invalid-feedback">Informe o CEP.</div>
+                            </div>
+                            <div class="col-sm-4">
+                                <label for="checkout-numero" class="form-label fw-semibold">Número *</label>
+                                <input type="text" class="form-control" id="checkout-numero" placeholder="Ex: 123" required>
+                                <div class="invalid-feedback">Informe o número.</div>
+                            </div>
+                            <div class="col-sm-3">
+                                <label for="checkout-estado" class="form-label fw-semibold">UF</label>
+                                <input type="text" class="form-control bg-light" id="checkout-estado" placeholder="UF" readonly>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control bg-light" id="checkout-endereco" placeholder="Rua / Avenida..." readonly>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control bg-light" id="checkout-bairro" placeholder="Bairro" readonly>
+                            </div>
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control bg-light" id="checkout-cidade" placeholder="Cidade" readonly>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <input type="text" class="form-control" id="checkout-complemento" placeholder="Complemento (opcional — apto, bloco, casa...)">
                         </div>
                     </form>
                 </div>
@@ -1189,6 +1229,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AOS - Animate On Scroll -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <!-- Markdown renderer para Especificação Técnica -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Nosso JavaScript personalizado -->
     <script src="script.js"></script>
 </body>

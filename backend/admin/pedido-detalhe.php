@@ -68,6 +68,15 @@ layout_head('Pedido #' . $id);
                     <dd class="col-8"><?= htmlspecialchars($pedido['email_comprador']) ?></dd>
                     <dt class="col-4 text-muted">Telefone</dt>
                     <dd class="col-8"><?= htmlspecialchars($pedido['telefone_comprador']) ?></dd>
+                    <?php if ($pedido['cep']): ?>
+                    <dt class="col-4 text-muted">Endereço</dt>
+                    <dd class="col-8">
+                        <?= htmlspecialchars($pedido['endereco'] . ($pedido['numero'] ? ', ' . $pedido['numero'] : '')) ?>
+                        <?php if ($pedido['complemento']): ?> — <?= htmlspecialchars($pedido['complemento']) ?><?php endif; ?><br>
+                        <?= htmlspecialchars($pedido['bairro']) ?> — <?= htmlspecialchars($pedido['cidade']) ?>/<?= htmlspecialchars($pedido['estado']) ?><br>
+                        CEP: <?= htmlspecialchars($pedido['cep']) ?>
+                    </dd>
+                    <?php endif; ?>
                     <dt class="col-4 text-muted">Data</dt>
                     <dd class="col-8"><?= date('d/m/Y H:i', strtotime($pedido['criado_em'])) ?></dd>
                     <?php if ($pedido['mp_preferencia_id']): ?>

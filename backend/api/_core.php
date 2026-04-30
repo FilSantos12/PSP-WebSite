@@ -3,6 +3,8 @@
  * _core.php — Funções compartilhadas da API
  */
 
+date_default_timezone_set('America/Sao_Paulo');
+
 // ── CORS ──────────────────────────────────────────────────────────────────────
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/json; charset=UTF-8');

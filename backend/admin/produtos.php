@@ -4,7 +4,15 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/_layout.php';
 
 $pdo     = getDB();
-$produtos = $pdo->query("SELECT * FROM produtos ORDER BY id ASC")->fetchAll();
+$produtos = $pdo->query("
+    SELECT p.*,
+           COALESCE(
+               (SELECT caminho FROM produto_imagens WHERE produto_id = p.id AND principal = 1 LIMIT 1),
+               p.imagem
+           ) AS img_thumb
+    FROM produtos p
+    ORDER BY p.id ASC
+")->fetchAll();
 
 layout_head('Produtos');
 ?>
@@ -30,6 +38,7 @@ layout_head('Produtos');
                 <tr>
                     <th>#</th>
                     <th>Produto</th>
+                    <th>Código</th>
                     <th>Categoria</th>
                     <th>Preço</th>
                     <th>Estoque</th>
@@ -43,8 +52,12 @@ layout_head('Produtos');
                     <td class="text-muted small"><?= $p['id'] ?></td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
-                            <?php if ($p['imagem']): ?>
-                                <img src="/<?= htmlspecialchars($p['imagem']) ?>" width="40" height="40"
+                            <?php if ($p['img_thumb']): ?>
+                                <?php
+                                    $full = __DIR__ . '/../../' . $p['img_thumb'];
+                                    $bust = file_exists($full) ? '?v=' . filemtime($full) : '';
+                                ?>
+                                <img src="/<?= htmlspecialchars($p['img_thumb']) . $bust ?>" width="40" height="40"
                                      style="object-fit:cover; border-radius:6px;">
                             <?php endif; ?>
                             <div>
@@ -55,6 +68,7 @@ layout_head('Produtos');
                             </div>
                         </div>
                     </td>
+                    <td class="font-monospace small text-muted"><?= $p['codigo_interno'] ? htmlspecialchars($p['codigo_interno']) : '—' ?></td>
                     <td><span class="badge bg-secondary"><?= htmlspecialchars($p['categoria']) ?></span></td>
                     <td>R$ <?= number_format($p['preco'], 2, ',', '.') ?></td>
                     <td>
@@ -79,7 +93,7 @@ layout_head('Produtos');
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($produtos)): ?>
-                <tr><td colspan="7" class="text-center text-muted py-4">Nenhum produto cadastrado.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">Nenhum produto cadastrado.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
