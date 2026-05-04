@@ -77,6 +77,9 @@ function layout_head(string $titulo, string $extra_head = ''): void {
         <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['produtos.php','produto-novo.php','produto-editar.php']) ? 'active' : '' ?>" href="<?= $base ?>produtos.php">
             <i class="fas fa-box fa-fw"></i> Produtos
         </a>
+        <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'categorias.php' ? 'active' : '' ?>" href="<?= $base ?>categorias.php">
+            <i class="fas fa-tags fa-fw"></i> Categorias
+        </a>
 
         <div class="nav-section">Vendas</div>
         <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['pedidos.php','pedido-detalhe.php']) ? 'active' : '' ?>" href="<?= $base ?>pedidos.php">

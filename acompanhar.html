@@ -83,6 +83,8 @@
     .badge-cancelado   { background: #f8d7da; color: #721c24; }
     .badge-reembolsado,
     .badge-contestado  { background: #e2e3e5; color: #383d41; }
+    .badge-em_processamento { background: #ede7f6; color: #6f42c1; }
+    .badge-enviado          { background: #cce5ff; color: #274185; }
 
     .info-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; font-size: 0.88rem; }
     .info-row i { color: var(--primary, #274185); width: 18px; flex-shrink: 0; margin-top: 2px; }
@@ -217,6 +219,18 @@
       </div>
     </div>
 
+    <!-- Código de rastreio Correios -->
+    <div id="rRastreioBox" style="display:none; margin-top:20px; background:#f0f4ff; border:1px solid #b8cef5; border-radius:10px; padding:16px 20px; text-align:center;">
+      <div style="font-size:11px; color:#555; letter-spacing:1px; margin-bottom:6px; text-transform:uppercase;">Código de Rastreio</div>
+      <div id="rRastreioCodigo" style="font-size:20px; font-weight:700; letter-spacing:3px; color:#274185; font-family:monospace;"></div>
+      <div style="margin-top:12px;">
+        <a id="rRastreioLink" href="#" target="_blank" rel="noopener"
+           style="display:inline-block; background:#274185; color:#fff; padding:8px 20px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:600;">
+          <i class="fas fa-external-link-alt me-1"></i>Rastrear nos Correios
+        </a>
+      </div>
+    </div>
+
     <!-- Mensagem de status -->
     <div id="rMensagem" class="alert mt-4 mb-0" style="display:none;"></div>
 
@@ -249,8 +263,10 @@
     em_analise:  { label: 'Em Análise',           cls: 'badge-em_analise',  tl: 1, msg: 'Seu pagamento está sendo analisado pelo Mercado Pago.' },
     recusado:    { label: 'Pagamento Recusado',   cls: 'badge-recusado',    tl: -1, msg: 'Seu pagamento foi recusado. Entre em contato conosco para mais informações.' },
     cancelado:   { label: 'Pedido Cancelado',     cls: 'badge-cancelado',   tl: -1, msg: 'Este pedido foi cancelado.' },
-    reembolsado: { label: 'Reembolsado',          cls: 'badge-reembolsado', tl: -1, msg: 'O valor pago foi reembolsado.' },
-    contestado:  { label: 'Em Contestação',       cls: 'badge-contestado',  tl: -1, msg: 'Este pagamento está em processo de contestação.' },
+    reembolsado:      { label: 'Reembolsado',      cls: 'badge-reembolsado',      tl: -1, msg: 'O valor pago foi reembolsado.' },
+    contestado:       { label: 'Em Contestação',  cls: 'badge-contestado',       tl: -1, msg: 'Este pagamento está em processo de contestação.' },
+    em_processamento: { label: 'Em Processamento',cls: 'badge-em_processamento', tl: 3,  msg: 'Seu pedido está sendo preparado para envio.' },
+    enviado:          { label: 'Enviado',          cls: 'badge-enviado',          tl: 4,  msg: null },
   };
 
   function renderTimeline(status) {
@@ -323,6 +339,15 @@
     });
 
     $('rTotal').textContent = fmt(p.total);
+
+    // Código de rastreio
+    if (p.codigo_rastreio) {
+      $('rRastreioCodigo').textContent = p.codigo_rastreio;
+      $('rRastreioLink').href = 'https://rastreamento.correios.com.br/app/index.php?objeto=' + encodeURIComponent(p.codigo_rastreio);
+      $('rRastreioBox').style.display = '';
+    } else {
+      $('rRastreioBox').style.display = 'none';
+    }
 
     // Mensagem de status
     if (cfg.msg) {

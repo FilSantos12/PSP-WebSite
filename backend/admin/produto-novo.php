@@ -4,8 +4,11 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/_layout.php';
 
 $erros        = [];
-$produtoCriado = null; // ID do produto após salvar com sucesso
+$produtoCriado = null;
 $dados = ['nome' => '', 'descricao' => '', 'preco' => '', 'categoria' => '', 'estoque' => '', 'ativo' => 1, 'codigo_interno' => '', 'especificacao_tecnica' => ''];
+
+$pdo = getDB();
+$categoriasDb = $pdo->query("SELECT slug, nome FROM categorias ORDER BY ordem ASC, nome ASC")->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['nome']                  = trim($_POST['nome'] ?? '');
@@ -26,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!preg_match('/^[A-Z]{2}\.\d{2}\.\d{5}$/', $dados['codigo_interno'])) {
             $erros[] = 'Código interno inválido. Formato esperado: SE.02.00002';
         } else {
-            $pdo = getDB();
             $dup = $pdo->prepare("SELECT id FROM produtos WHERE codigo_interno = :cod");
             $dup->execute([':cod' => $dados['codigo_interno']]);
             if ($dup->fetch()) $erros[] = 'Código interno já cadastrado para outro produto.';
@@ -77,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($erros)) {
-        $pdo = getDB();
         $pdo->prepare("
             INSERT INTO produtos (nome, descricao, preco, categoria, imagem, estoque, ativo, codigo_interno, datasheet, especificacao_tecnica)
             VALUES (:nome, :descricao, :preco, :categoria, :imagem, :estoque, :ativo, :codigo_interno, :datasheet, :especificacao_tecnica)
@@ -340,8 +341,10 @@ layout_head('Novo Produto', $easymde_css);
                     <label class="form-label">Categoria <span class="text-danger">*</span></label>
                     <select name="categoria" class="form-select" required>
                         <option value="">Selecione...</option>
-                        <?php foreach (['motorizacao' => 'Motorização', 'robotica' => 'Robótica', 'acesso' => 'Controle de Acesso', 'bluetooth' => 'Bluetooth'] as $val => $label): ?>
-                            <option value="<?= $val ?>" <?= $dados['categoria'] === $val ? 'selected' : '' ?>><?= $label ?></option>
+                        <?php foreach ($categoriasDb as $cat): ?>
+                            <option value="<?= htmlspecialchars($cat['slug']) ?>" <?= $dados['categoria'] === $cat['slug'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($cat['nome']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>

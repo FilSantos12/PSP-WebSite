@@ -559,6 +559,9 @@ footer {
     border-radius: 20px;
     margin-bottom: 0.5rem;
     letter-spacing: 0.3px;
+    /* fallback para categorias sem classe específica */
+    background-color: rgba(100, 116, 139, 0.12);
+    color: #475569;
 }
 
 .badge-motorizacao {

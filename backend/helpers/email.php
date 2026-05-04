@@ -27,25 +27,29 @@ function _enviarEmail(string $para, string $assunto, string $corpo): bool {
 
 function _statusLabel(string $status): string {
     return match($status) {
-        'aprovado'    => 'Pagamento Aprovado',
-        'pendente'    => 'Aguardando Pagamento',
-        'em_analise'  => 'Em Análise',
-        'recusado'    => 'Pagamento Recusado',
-        'cancelado'   => 'Pedido Cancelado',
-        'reembolsado' => 'Reembolsado',
-        'contestado'  => 'Em Contestação',
-        default       => ucfirst($status),
+        'aprovado'         => 'Pagamento Aprovado',
+        'pendente'         => 'Aguardando Pagamento',
+        'em_analise'       => 'Em Análise',
+        'recusado'         => 'Pagamento Recusado',
+        'cancelado'        => 'Pedido Cancelado',
+        'reembolsado'      => 'Reembolsado',
+        'contestado'       => 'Em Contestação',
+        'em_processamento' => 'Em Processamento',
+        'enviado'          => 'Enviado',
+        default            => ucfirst($status),
     };
 }
 
 function _statusCor(string $status): string {
     return match($status) {
-        'aprovado'    => '#1a7a3c',
-        'pendente'    => '#b8860b',
-        'em_analise'  => '#0d6efd',
+        'aprovado'         => '#1a7a3c',
+        'pendente'         => '#b8860b',
+        'em_analise'       => '#0d6efd',
         'recusado',
-        'cancelado'   => '#c0392b',
-        default       => '#555',
+        'cancelado'        => '#c0392b',
+        'em_processamento' => '#6f42c1',
+        'enviado'          => '#0d6efd',
+        default            => '#555',
     };
 }
 
@@ -175,6 +179,82 @@ function emailPedidoCriado(array $pedido, array $itens, string $token): void {
         $pedido['email_comprador'],
         "Pedido #{$pedidoId} recebido — PSPart",
         _layoutEmail("Pedido #{$pedidoId} Recebido!", $conteudo)
+    );
+}
+
+/**
+ * E-mail 3: Pedido enviado pelos Correios (disparado pelo admin ao inserir código de rastreio)
+ */
+function emailPedidoEnviado(array $pedido, array $itens, string $token, string $codigoRastreio): void {
+    $baseUrl      = defined('MP_BASE_URL') ? MP_BASE_URL : '';
+    $linkAcomp    = $baseUrl . '/acompanhar.html?pedido=' . $pedido['id'] . '&token=' . $token;
+    $linkRastreio = 'https://rastreamento.correios.com.br/app/index.php?objeto=' . urlencode($codigoRastreio);
+    $total        = number_format($pedido['total'], 2, ',', '.');
+    $nome         = htmlspecialchars($pedido['nome_comprador']);
+    $pedidoId     = $pedido['id'];
+
+    $linhasItens = '';
+    foreach ($itens as $item) {
+        $subtotal     = number_format($item['preco_unitario'] * $item['quantidade'], 2, ',', '.');
+        $preco        = number_format($item['preco_unitario'], 2, ',', '.');
+        $linhasItens .= <<<HTML
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;">{$item['produto_nome']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:center;">{$item['quantidade']}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$preco}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">R$ {$subtotal}</td>
+        </tr>
+        HTML;
+    }
+
+    $conteudo = <<<HTML
+    <p>Olá, <strong>{$nome}</strong>!</p>
+    <p>
+      <span style="font-size:32px;">📦</span><br>
+      Seu pedido foi <strong style="color:#0d6efd;">enviado</strong>! Você pode acompanhar a entrega pelos Correios.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr>
+        <td style="padding:16px;background:#f0f4ff;border-radius:8px;text-align:center;">
+          <div style="font-size:12px;color:#555;margin-bottom:6px;">CÓDIGO DE RASTREIO</div>
+          <div style="font-size:20px;font-weight:bold;letter-spacing:2px;color:#274185;">{$codigoRastreio}</div>
+          <div style="margin-top:12px;">
+            <a href="{$linkRastreio}" style="background:#274185;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold;">
+              Rastrear nos Correios
+            </a>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;font-size:13px;">
+      <tr style="background:#f4f6fb;">
+        <th style="padding:8px 0;text-align:left;">Produto</th>
+        <th style="padding:8px 0;text-align:center;">Qtd</th>
+        <th style="padding:8px 0;text-align:right;">Preço unit.</th>
+        <th style="padding:8px 0;text-align:right;">Subtotal</th>
+      </tr>
+      {$linhasItens}
+      <tr>
+        <td colspan="3" style="padding:10px 0;text-align:right;font-weight:bold;">Total:</td>
+        <td style="padding:10px 0;text-align:right;font-weight:bold;color:#274185;">R$ {$total}</td>
+      </tr>
+    </table>
+
+    <div style="margin:24px 0;text-align:center;">
+      <a href="{$linkAcomp}" style="background:#274185;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:bold;">
+        Acompanhar Pedido
+      </a>
+    </div>
+
+    <p style="font-size:12px;color:#999;">Se o botão não funcionar, acesse: <a href="{$linkAcomp}">{$linkAcomp}</a></p>
+    HTML;
+
+    _enviarEmail(
+        $pedido['email_comprador'],
+        "Seu pedido #{$pedidoId} foi enviado! — PSPart",
+        _layoutEmail("Pedido #{$pedidoId} Enviado! 📦", $conteudo)
     );
 }
 

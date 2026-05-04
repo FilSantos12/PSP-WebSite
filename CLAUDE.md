@@ -8,7 +8,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 ## Arquivos principais
 | Arquivo | Função |
 |---|---|
-| `index.html` | Página única (~1080 linhas) |
+| `index.html` | Página única |
 | `acompanhar.html` | Página de acompanhamento de pedido (standalone) |
 | `style.css` | Estilos com CSS variables |
 | `script.js` | Classe `App` com toda a lógica |
@@ -27,7 +27,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 2. `#inicio` — Hero + contadores animados
 3. Diferenciais — 4 cards
 4. `#sobre` — Sobre Nós (texto placeholder, aguarda conteúdo real)
-5. `#produtos` — cards dinâmicos (renderizados via API) + filtro de categorias + modais de detalhe
+5. `#produtos` — cards dinâmicos (renderizados via API) + filtro de categorias dinâmico + modais de detalhe
 6. `#contato` — Formulário + info de contato
 7. Footer + botão WhatsApp flutuante + back-to-top
 8. **Modal de Checkout** (`#checkoutModal`, `modal-lg`) — dados do comprador + endereço com ViaCEP + controle de quantidade
@@ -36,22 +36,18 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 
 ## Página de Acompanhamento (`acompanhar.html`)
 - Standalone — não depende de `index.html`
-- **Busca por token** (link do e-mail): `acompanhar.html?pedido=X&token=abc123`
+- **Busca por token** (link do e-mail ou retorno do MP): `acompanhar.html?pedido=X&token=abc123`
 - **Busca manual**: formulário com pedido_id + e-mail
 - Exibe: status badge, timeline visual (4 etapas), itens do pedido, endereço, dados do comprador
 - API: `GET /backend/api/acompanhar.php?token=...` ou `?pedido_id=X&email=Y`
 
-## Produtos e categorias
-| Produto | `data-category` | `data-product-id` | Preço exemplo |
-|---|---|---|---|
-| Motoredutor Porta | `motorizacao` | 1 | R$ 189,90 |
-| Motoredutor de Tração | `motorizacao` | 2 | R$ 249,90 |
-| Mini Motor | `robotica` | 3 | R$ 59,90 |
-| Leitor Biométrico | `acesso` | 4 | R$ 179,90 |
-| Trava Eletrônica (Mitra) | `acesso` | 5 | R$ 219,90 |
-| Trava Eletrônica BLE | `bluetooth` | 6 | R$ 329,90 |
-
-> **Os preços acima são exemplos para aprovação de layout.** Os valores reais serão definidos via área admin após integração com o banco de dados.
+## Categorias
+- Gerenciadas na tabela `categorias` do banco — **não são mais hardcoded**
+- Categorias iniciais: `motorizacao`, `robotica`, `acesso`, `bluetooth`
+- Admin: `backend/admin/categorias.php` — criar, listar, excluir (com proteção: não exclui se há produtos vinculados)
+- API pública: `GET /backend/api/categorias.php` — retorna `[{slug, nome}]` usada pelo frontend
+- Os selects de categoria em `produto-novo.php` e `produto-editar.php` carregam do banco automaticamente
+- Novos filtros do catálogo e badges de produto refletem novas categorias sem alterar código
 
 ## E-mails transacionais (`backend/helpers/email.php`)
 - `emailPedidoCriado($pedido, $itens, $token)` — disparado em `pedidos.php` ao criar o pedido; inclui link de acompanhamento
@@ -63,14 +59,15 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 ## Classe App (script.js)
 - `setupScrollHandlers()` — scroll spy + back-to-top unificados com `requestAnimationFrame`
 - `setupThemeToggle()` — dark/light, persiste em `localStorage('psp_theme')`
-- `setupProductFilter()` — filtra `.product-col` por `data-category`; chamado após `renderProducts()`
+- `setupProductFilter()` — registra listener com **event delegation** no `#product-filters`; consulta `.product-col` no momento do clique (sem NodeList stale); chamado uma vez em `init()`
 - `setupLGPD()` — banner de cookies, persiste em `localStorage('psp_lgpd_consent')`
 - `setupContactForm()` → `submitForm()` — fetch para FormSubmit.co
 - `setupCounters()` — Intersection Observer nos `.stat-number`
 - `setupModalButtons()` — botão "Solicitar Orçamento" preenche formulário de contato
 - `setupCheckout()` — checkout completo: dados pessoais + endereço ViaCEP, valida inline, grava pedido, redireciona para MP via `init_point`
 - `setupImageLightbox()` — lightbox customizado para `img.card-img-top`, `img.carousel-img`, `img.modal-product-image`
-- `renderProducts()` — busca produtos da API, gera cards e modais dinamicamente em `#products-grid` / `#product-modals`; desabilita botão se estoque = 0
+- `renderProducts()` — busca categorias e produtos em paralelo (`Promise.all`); gera botões de filtro dinamicamente em `#product-filters`; gera cards e modais em `#products-grid` / `#product-modals`; desabilita botão se estoque = 0
+- `handleRetornoMP()` — detecta `?pagamento=recusado|pendente` na URL após retorno do MP; limpa o param com `history.replaceState`; exibe modal apropriado
 - `_buscarCep()` — consulta ViaCEP e preenche campos de endereço automaticamente
 
 ## Fluxo de compra
@@ -80,6 +77,10 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 4. Clicar em **"Ir para pagamento"** → validação inline (campos obrigatórios: nome, e-mail, telefone, CEP, número)
 5. Spinner de redirecionamento → `window.location.href = mp.init_point`
 6. Pagamento processado no Mercado Pago → webhook atualiza status do pedido no banco
+7. **Retorno do MP:**
+   - `aprovado` → redireciona para `acompanhar.html?pedido=X&token=Y` (token incluído na `back_url.success`)
+   - `recusado` → homepage com modal de erro
+   - `pendente` → homepage com modal informando análise
 
 ## Lightbox de imagem
 - Overlay customizado (`z-index: 9999`) — não usa Bootstrap Modal, evita conflito com modais abertos
@@ -116,7 +117,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | nome | TEXT NOT NULL | |
 | descricao | TEXT | |
 | preco | REAL | |
-| categoria | TEXT | motorizacao / robotica / acesso / bluetooth |
+| categoria | TEXT | slug da tabela `categorias` |
 | imagem | TEXT | campo legado — fallback quando `produto_imagens` estiver vazio |
 | estoque | INTEGER | |
 | ativo | INTEGER | 0 ou 1 |
@@ -134,6 +135,17 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | ordem | INTEGER | usado para ordenação (drag-and-drop no admin) |
 | principal | INTEGER | 1 = imagem principal (thumbnail) |
 | criado_em | TEXT | |
+
+### Tabela `categorias`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| id | INTEGER PK | |
+| slug | TEXT UNIQUE | chave usada em `produtos.categoria` e `data-category` no frontend |
+| nome | TEXT | label exibido nos filtros e badges |
+| ordem | INTEGER | ordem de exibição dos botões de filtro |
+| criado_em | TEXT | |
+
+> Migration inicial: acessar `migrate-categorias.php` uma vez via browser e apagar o arquivo.
 
 ### Tabela `pedidos`
 - id, nome/email/telefone_comprador, endereço completo, total, status, mp_preferencia_id, token_acompanhamento, criado_em
@@ -153,6 +165,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | `backend/admin/produto-novo.php` | Criação em duas fases na mesma página — fase 1: formulário; fase 2 (após salvar): seção de imagens múltiplas com AJAX + SortableJS |
 | `backend/admin/produto-editar.php` | Edição — inclui EasyMDE + gerenciamento de imagens múltiplas via AJAX |
 | `backend/admin/ajax-imagens.php` | AJAX para imagens: `upload`, `set-principal`, `reorder`, `delete` |
+| `backend/admin/categorias.php` | CRUD de categorias — listar com contagem de produtos, criar (auto-slug), excluir (bloqueado se há produtos vinculados) |
 | `backend/admin/_layout.php` | Layout base — aceita `$extra_head` como segundo parâmetro para injetar CSS no `<head>` |
 
 ### Fluxo de produto-novo.php
@@ -160,6 +173,7 @@ Página em duas fases sem redirect entre elas:
 - **Fase 1 (GET ou POST com erro):** formulário completo com todos os campos, incluindo EasyMDE para especificação técnica
 - **Fase 2 (POST com sucesso):** `$produtoCriado` recebe o `lastInsertId()`; o formulário é substituído por banner de confirmação + seção de imagens idêntica à de editar; links "Criar outro produto" e "Ver todos os produtos"
 - EasyMDE só é carregado na fase 1 (não desperdiça CDN na fase 2)
+- Imagem enviada pelo formulário é automaticamente inserida em `produto_imagens` com `principal = 1`
 
 ### Campo Código Interno
 - Formato fixo: `SE.02.00002` (2 letras maiúsculas + ponto + 2 dígitos + ponto + 5 dígitos)
@@ -170,7 +184,8 @@ Página em duas fases sem redirect entre elas:
 ### Upload de Data Sheet (PDF)
 - Armazenado em `docs/ds_{produto_id}_{uniqid}.pdf`
 - Diretório `docs/` criado automaticamente na primeira vez
-- Validação MIME via `finfo` + limite de 10 MB
+- Validação via **magic bytes** (`%PDF` nos primeiros 4 bytes) — mais confiável que `finfo` no Windows
+- Erros de upload reportados com mensagem descritiva por código (`UPLOAD_ERR_INI_SIZE`, etc.)
 - Admin: visualizar PDF atual, remover (checkbox) ou substituir
 - Frontend: botão "Data Sheet" no footer do modal de produto
 
@@ -194,16 +209,25 @@ Retorna por produto: `id`, `nome`, `descricao`, `preco`, `categoria`, `imagem`, 
 
 O array `imagens` contém objetos `{caminho, ordem, principal}` ordenados por `ordem ASC`.
 
-### renderProducts() — lógica de imagem no frontend
+### renderProducts() — lógica de imagem e filtros no frontend
 ```javascript
-// Prioridade: imagem principal de produto_imagens → qualquer imagem do array → campo legado imagem
+// Busca categorias e produtos em paralelo
+const [prodRes, catRes] = await Promise.all([
+    fetch('backend/api/produtos.php'),
+    fetch('backend/api/categorias.php'),
+]);
+
+// Prioridade de imagem: imagem principal de produto_imagens → qualquer imagem do array → campo legado
 const imgPrincipal = imagens.find(img => img.principal) || imagens[0];
 const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 
 // Modal: carousel Bootstrap se imagens.length > 1, imagem simples se = 1
+
+// Filtros: botões gerados dinamicamente em #product-filters a partir de categorias[]
+// setupProductFilter() usa event delegation — um listener no container, não por botão
 ```
 
-## Roadmap de e-commerce (planejado)
+## Roadmap de e-commerce
 | Fase | Descrição | Status |
 |---|---|---|
 | Fase 5 | Frontend — preços, checkout modal, lightbox | ✅ Concluído |
@@ -213,6 +237,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 4 | Área Admin (dashboard, CRUD produtos, pedidos, login) | ✅ Concluído |
 | Fase 6 | Acompanhamento de pedido — página + e-mails transacionais | ✅ Concluído |
 | Fase 7 | Admin produtos: código interno, data sheet, múltiplas imagens, especificação técnica | ✅ Concluído |
+| Fase 8 | Gestão de categorias + filtros dinâmicos + retorno MP pós-pagamento | ✅ Concluído |
 
 ## Decisões técnicas
 - **Backend:** PHP (familiaridade do desenvolvedor)
@@ -222,6 +247,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - **SQL Server:** descartado — requer driver `pdo_sqlsrv` e servidor dedicado, inviável em hospedagem compartilhada
 - **`init_point` em vez de `sandbox_init_point`:** evita `ERR_TOO_MANY_REDIRECTS` no subdomínio `sandbox.mercadopago.com.br`; com credenciais de teste o pagamento ainda é processado como teste
 - **`auto_return` removido:** causava loop de redirect no sandbox do MP
+- **`back_url.success` aponta para `acompanhar.html`:** token incluído na URL para o usuário ver o pedido sem login imediatamente após pagar
 - **Webhook:** suporta formato v1 (`type/data.id`) e formato IPN antigo (`topic/resource`) — MP pode enviar qualquer um dos dois
 - **E-mail via `mail()` nativo:** sem dependência externa; compatível com hospedagem compartilhada; não funciona em localhost
 - **Token de acompanhamento:** `bin2hex(random_bytes(16))` — 32 chars hex, gerado na criação do pedido, armazenado em `pedidos.token_acompanhamento`; permite acesso direto sem login
@@ -230,7 +256,10 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - **Cache busting de imagens no admin:** `?v=filemtime()` — parâmetro muda apenas quando o arquivo no disco é alterado
 - **EasyMDE + marked.js:** usados respectivamente no admin (edição Markdown) e no frontend (renderização); ambos via CDN, sem build process
 - **SortableJS:** drag-and-drop para reordenação de imagens no admin; CDN carregado em `produto-editar.php` e na fase 2 de `produto-novo.php`
-- **Migrations via sqlite3 CLI:** colunas adicionadas após o setup inicial (`especificacao_tecnica`) foram aplicadas diretamente com `sqlite3 database.db "ALTER TABLE produtos ADD COLUMN ..."` — não requerem re-executar setup.php
+- **Validação de PDF por magic bytes:** `finfo_open` retorna MIME incorreto em algumas builds PHP/Windows; substituído por leitura dos primeiros 4 bytes (`%PDF`)
+- **Categorias dinâmicas:** tabela `categorias` é a fonte de verdade; filtros do catálogo e selects do admin sempre refletem o banco sem alteração de código
+- **Filtro com event delegation:** `setupProductFilter()` usa um único listener no container `#product-filters` e consulta `.product-col` no momento do clique — evita NodeList stale após re-render
+- **Migrations via sqlite3 CLI:** colunas adicionadas após o setup inicial foram aplicadas diretamente com `sqlite3 database.db "ALTER TABLE ..."` — não requerem re-executar setup.php
 
 ## Placeholders pendentes (necessários antes do deploy)
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)
@@ -281,6 +310,15 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 ### Banco de dados
 - Arquivo: `database.db` na raiz do projeto
 - Visualizar: abrir no **DB Browser for SQLite**
+
+## .gitignore — o que é ignorado
+- `database.db` — banco de dados runtime
+- `img/prod_*` — imagens de produtos enviadas pelo admin
+- `docs/` — data sheets PDF enviados pelo admin
+- `config/` — diretório de config gerado em runtime na raiz
+- `backend/config/mercadopago.php` — credenciais sensíveis do MP
+- `vendor/` — dependências Composer
+- `logs/` — logs do webhook
 
 ## Preferências
 - Abordagem não agressiva: melhorar sem reescrever seções inteiras

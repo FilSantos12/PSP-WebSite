@@ -26,9 +26,10 @@ if ($pedidoId <= 0) {
 try {
     $pdo = getDB();
 
-    // Busca o pedido com seus itens
+    // Busca o pedido com seus itens e token de acompanhamento
     $stmt = $pdo->prepare("
         SELECT p.id, p.nome_comprador, p.email_comprador, p.total,
+               p.token_acompanhamento,
                ip.quantidade, ip.preco_unitario,
                pr.nome AS produto_nome
         FROM pedidos p
@@ -64,7 +65,7 @@ try {
             'name'  => $pedido['nome_comprador'],
         ],
         'back_urls' => [
-            'success' => MP_BASE_URL . '/?pagamento=aprovado&pedido=' . $pedidoId,
+            'success' => MP_BASE_URL . '/acompanhar.html?pedido=' . $pedidoId . '&token=' . $pedido['token_acompanhamento'],
             'failure' => MP_BASE_URL . '/?pagamento=recusado&pedido='  . $pedidoId,
             'pending' => MP_BASE_URL . '/?pagamento=pendente&pedido='  . $pedidoId,
         ],

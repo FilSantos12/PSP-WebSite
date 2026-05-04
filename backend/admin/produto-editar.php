@@ -5,6 +5,7 @@ require_once __DIR__ . '/_layout.php';
 
 $pdo = getDB();
 $id  = (int) ($_GET['id'] ?? $_POST['id'] ?? 0);
+$categoriasDb = $pdo->query("SELECT slug, nome FROM categorias ORDER BY ordem ASC, nome ASC")->fetchAll();
 
 $produto = $pdo->prepare("SELECT * FROM produtos WHERE id = :id");
 $produto->execute([':id' => $id]);
@@ -181,8 +182,10 @@ layout_head('Editar Produto', $easymde_css);
                     <label class="form-label">Categoria <span class="text-danger">*</span></label>
                     <select name="categoria" class="form-select" required>
                         <option value="">Selecione...</option>
-                        <?php foreach (['motorizacao' => 'Motorização', 'robotica' => 'Robótica', 'acesso' => 'Controle de Acesso', 'bluetooth' => 'Bluetooth'] as $val => $label): ?>
-                            <option value="<?= $val ?>" <?= $dados['categoria'] === $val ? 'selected' : '' ?>><?= $label ?></option>
+                        <?php foreach ($categoriasDb as $cat): ?>
+                            <option value="<?= htmlspecialchars($cat['slug']) ?>" <?= $dados['categoria'] === $cat['slug'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($cat['nome']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>

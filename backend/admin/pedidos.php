@@ -13,19 +13,24 @@ $sql .= " ORDER BY id DESC";
 $pedidos = $pdo->query($sql)->fetchAll();
 
 $statusBadge = [
-    'aprovado'    => 'success',
-    'pendente'    => 'warning',
-    'em_analise'  => 'info',
-    'recusado'    => 'danger',
-    'cancelado'   => 'secondary',
-    'reembolsado' => 'secondary',
-    'contestado'  => 'danger',
+    'aprovado'         => 'success',
+    'pendente'         => 'warning',
+    'em_analise'       => 'info',
+    'recusado'         => 'danger',
+    'cancelado'        => 'secondary',
+    'reembolsado'      => 'secondary',
+    'contestado'       => 'danger',
+    'em_processamento' => 'purple',
+    'enviado'          => 'primary',
 ];
 
-$statusOpcoes = ['', 'aprovado', 'pendente', 'em_analise', 'recusado', 'cancelado'];
+$statusOpcoes = ['', 'aprovado', 'pendente', 'em_analise', 'em_processamento', 'enviado', 'recusado', 'cancelado'];
 
 layout_head('Pedidos');
 ?>
+<style>
+  .bg-purple { background-color: #6f42c1 !important; }
+</style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <span class="text-muted small"><?= count($pedidos) ?> pedido(s)</span>

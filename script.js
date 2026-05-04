@@ -16,7 +16,9 @@ class App {
         this.setupThemeToggle();
         this.setupCheckout();
         this.setupImageLightbox();
+        this.setupProductFilter();
         this.renderProducts();
+        this.handleRetornoMP();
     }
 
     setupEventListeners() {
@@ -244,20 +246,21 @@ class App {
     }
 
     setupProductFilter() {
-        const filterBtns = document.querySelectorAll('.filter-btn');
-        const productCols = document.querySelectorAll('.product-col');
-        if (!filterBtns.length) return;
+        const filtersEl = document.getElementById('product-filters');
+        if (!filtersEl) return;
 
-        filterBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+        // Event delegation: um único listener no container, sempre lê .product-col do DOM atual
+        filtersEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
 
-                const filter = btn.dataset.filter;
-                productCols.forEach(col => {
-                    const match = filter === 'all' || col.dataset.category === filter;
-                    col.classList.toggle('hidden', !match);
-                });
+            filtersEl.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const filter = btn.dataset.filter;
+            document.querySelectorAll('#products-grid .product-col').forEach(col => {
+                const match = filter === 'all' || col.dataset.category === filter;
+                col.classList.toggle('hidden', !match);
             });
         });
     }
@@ -574,19 +577,19 @@ class App {
         });
     }
 
-    // ── PRODUTOS — renderiza cards e modais a partir da API ──────────────────
+    // ── PRODUTOS — renderiza cards, modais e filtros a partir da API ─────────
 
     async renderProducts() {
-        const categoryLabels = {
-            motorizacao: 'Motorização',
-            robotica:    'Robótica',
-            acesso:      'Controle de Acesso',
-            bluetooth:   'Bluetooth',
-        };
-
         try {
-            const r       = await fetch('backend/api/produtos.php');
-            const produtos = await r.json();
+            const [prodRes, catRes] = await Promise.all([
+                fetch('backend/api/produtos.php'),
+                fetch('backend/api/categorias.php'),
+            ]);
+            const produtos   = await prodRes.json();
+            const categorias = catRes.ok ? await catRes.json() : [];
+
+            // Mapa slug → nome para lookup nos cards
+            const categoryMap = Object.fromEntries(categorias.map(c => [c.slug, c.nome]));
 
             const grid   = document.getElementById('products-grid');
             const modals = document.getElementById('product-modals');
@@ -595,8 +598,18 @@ class App {
             let cardsHtml  = '';
             let modalsHtml = '';
 
+            // Gera botões de filtro dinamicamente
+            const filtersEl = document.getElementById('product-filters');
+            if (filtersEl && categorias.length) {
+                filtersEl.innerHTML =
+                    `<button class="filter-btn active" data-filter="all">Todos</button>` +
+                    categorias.map(c =>
+                        `<button class="filter-btn" data-filter="${c.slug}">${c.nome}</button>`
+                    ).join('');
+            }
+
             produtos.forEach((p, i) => {
-                const label  = categoryLabels[p.categoria] || p.categoria;
+                const label  = categoryMap[p.categoria] || p.categoria;
                 const preco  = p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const delay  = (i % 3) * 100;
 
@@ -738,10 +751,43 @@ class App {
             grid.innerHTML   = cardsHtml   || '<p class="text-center text-muted col-12">Nenhum produto disponível.</p>';
             modals.innerHTML = modalsHtml;
 
-            this.setupProductFilter();
             if (typeof AOS !== 'undefined') AOS.refresh();
 
         } catch (_) { /* mantém conteúdo estático do HTML se API falhar */ }
+    }
+
+    // ── RETORNO DO MERCADO PAGO ───────────────────────────────────────────────
+
+    handleRetornoMP() {
+        const params  = new URLSearchParams(window.location.search);
+        const status  = params.get('pagamento');
+        if (!status) return;
+
+        // Limpa os parâmetros da URL sem recarregar a página
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        if (status === 'recusado') {
+            this.showErrorModal('Pagamento não aprovado. Verifique os dados do cartão ou escolha outra forma de pagamento e tente novamente.');
+        } else if (status === 'pendente') {
+            this._showMpPendente();
+        }
+    }
+
+    _showMpPendente() {
+        const modal   = document.getElementById('confirmationModal');
+        if (!modal) return;
+
+        const title   = modal.querySelector('.modal-title');
+        const icon    = modal.querySelector('.modal-body i');
+        const heading = modal.querySelector('.modal-body h4');
+        const text    = modal.querySelector('.modal-body p');
+
+        if (title)   title.textContent   = 'Pagamento em análise';
+        if (icon)    { icon.className    = 'fas fa-clock fa-3x text-warning mb-3'; }
+        if (heading) heading.textContent = 'Seu pagamento está pendente';
+        if (text)    text.textContent    = 'O pagamento está sendo processado. Você receberá um e-mail assim que for confirmado.';
+
+        new bootstrap.Modal(modal).show();
     }
 
     _showPaymentComingSoon() {
