@@ -19,24 +19,28 @@ try {
 
     $produtos = $stmt->fetchAll();
 
-    $stmtImgs = $pdo->prepare("
-        SELECT caminho, ordem, principal
+    // Busca todas as imagens em uma única query (evita N+1)
+    $allImgs = $pdo->query("
+        SELECT produto_id, caminho, ordem, principal
         FROM produto_imagens
-        WHERE produto_id = :pid
-        ORDER BY ordem ASC, id ASC
-    ");
+        ORDER BY produto_id ASC, ordem ASC, id ASC
+    ")->fetchAll();
+
+    $imgsByProduct = [];
+    foreach ($allImgs as $img) {
+        $pid = (int) $img['produto_id'];
+        $imgsByProduct[$pid][] = [
+            'caminho'   => $img['caminho'],
+            'ordem'     => (int) $img['ordem'],
+            'principal' => (int) $img['principal'],
+        ];
+    }
 
     foreach ($produtos as &$p) {
         $p['id']      = (int)   $p['id'];
         $p['preco']   = (float) $p['preco'];
         $p['estoque'] = (int)   $p['estoque'];
-
-        $stmtImgs->execute([':pid' => $p['id']]);
-        $imgs = $stmtImgs->fetchAll();
-        foreach ($imgs as &$img) {
-            $img['principal'] = (int) $img['principal'];
-        }
-        $p['imagens'] = $imgs;
+        $p['imagens'] = $imgsByProduct[$p['id']] ?? [];
     }
 
     json_ok($produtos);

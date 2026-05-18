@@ -5,6 +5,20 @@
  */
 
 function _enviarEmail(string $para, string $assunto, string $corpo): bool {
+    $logDir  = __DIR__ . '/../../logs';
+    $logFile = $logDir . '/emails.log';
+    if (!is_dir($logDir)) mkdir($logDir, 0755, true);
+
+    // Em localhost, mail() trava o servidor PHP single-threaded por 30-60s tentando SMTP
+    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+    if (str_contains($host, 'localhost') || str_contains($host, '127.0.0.1')) {
+        file_put_contents($logFile,
+            date('Y-m-d H:i:s') . " | DEV-SKIP | Para: {$para} | Assunto: {$assunto}\n",
+            FILE_APPEND | LOCK_EX
+        );
+        return false;
+    }
+
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: PSPart <noreply@pspart.com.br>\r\n";
@@ -13,9 +27,6 @@ function _enviarEmail(string $para, string $assunto, string $corpo): bool {
 
     $ok = @mail($para, '=?UTF-8?B?' . base64_encode($assunto) . '?=', $corpo, $headers);
 
-    $logDir  = __DIR__ . '/../../logs';
-    $logFile = $logDir . '/emails.log';
-    if (!is_dir($logDir)) mkdir($logDir, 0755, true);
     $status = $ok ? 'OK' : 'FALHOU';
     file_put_contents($logFile,
         date('Y-m-d H:i:s') . " | {$status} | Para: {$para} | Assunto: {$assunto}\n",

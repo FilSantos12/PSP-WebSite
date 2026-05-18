@@ -324,8 +324,9 @@ class App {
     // ── CHECKOUT ──────────────────────────────────────────────────────────────
 
     setupCheckout() {
-        this._checkoutPrice     = 0;
-        this._checkoutProductId = 0;
+        this._checkoutPrice      = 0;
+        this._checkoutProductId  = 0;
+        this._brickErrorHandled  = false;
 
         // Abre o modal de checkout ao clicar em qualquer .btn-buy
         document.addEventListener('click', (e) => {
@@ -385,96 +386,255 @@ class App {
         document.getElementById('checkout-cep')?.addEventListener('blur', buscarCep);
         document.getElementById('checkout-cep-btn')?.addEventListener('click', buscarCep);
 
-        // Submissão do checkout
-        document.getElementById('checkout-submit')?.addEventListener('click', async () => {
-            const required = [
-                { id: 'checkout-nome',     value: document.getElementById('checkout-nome')?.value.trim() },
-                { id: 'checkout-email',    value: document.getElementById('checkout-email')?.value.trim() },
-                { id: 'checkout-telefone', value: document.getElementById('checkout-telefone')?.value.trim() },
-                { id: 'checkout-cep',      value: document.getElementById('checkout-cep')?.value.replace(/\D/g,'') },
-                { id: 'checkout-numero',   value: document.getElementById('checkout-numero')?.value.trim() },
-            ];
+        // Limpa o Brick ao fechar o modal
+        document.getElementById('checkoutModal')?.addEventListener('hidden.bs.modal', () => {
+            this._unmountBrick();
+        });
 
-            let valid = true;
-            required.forEach(({ id, value }) => {
-                const el = document.getElementById(id);
-                if (!value) { el.classList.add('is-invalid'); valid = false; }
-            });
+        // Botão: redirecionar para o Mercado Pago (fluxo original)
+        document.getElementById('checkout-submit-redirect')?.addEventListener('click', () => {
+            this._doCheckoutSubmit('redirect');
+        });
 
-            if (!valid) {
-                document.querySelector('#checkoutForm .is-invalid')?.focus();
-                return;
+        // Botão: pagar aqui mesmo (Checkout Bricks)
+        document.getElementById('checkout-submit-bricks')?.addEventListener('click', () => {
+            this._doCheckoutSubmit('bricks');
+        });
+
+        // Link dentro do Bricks: volta para o fluxo de redirect
+        document.getElementById('bricks-use-redirect')?.addEventListener('click', () => {
+            if (this._currentInitPoint) {
+                this._unmountBrick();
+                bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+                setTimeout(() => {
+                    new bootstrap.Modal(document.getElementById('paymentRedirectModal')).show();
+                    window.location.href = this._currentInitPoint;
+                }, 400);
             }
+        });
+    }
 
-            const submitBtn = document.getElementById('checkout-submit');
-            submitBtn.disabled = true;
+    _validateCheckoutForm() {
+        const required = [
+            { id: 'checkout-nome',     value: document.getElementById('checkout-nome')?.value.trim() },
+            { id: 'checkout-email',    value: document.getElementById('checkout-email')?.value.trim() },
+            { id: 'checkout-telefone', value: document.getElementById('checkout-telefone')?.value.trim() },
+            { id: 'checkout-cep',      value: document.getElementById('checkout-cep')?.value.replace(/\D/g,'') },
+            { id: 'checkout-numero',   value: document.getElementById('checkout-numero')?.value.trim() },
+        ];
+        let valid = true;
+        required.forEach(({ id, value }) => {
+            const el = document.getElementById(id);
+            if (!value) { el?.classList.add('is-invalid'); valid = false; }
+        });
+        if (!valid) document.querySelector('#checkoutForm .is-invalid')?.focus();
+        return valid;
+    }
 
-            const qty = parseInt(document.getElementById('checkout-qty').value) || 1;
+    async _doCheckoutSubmit(mode) {
+        if (!this._validateCheckoutForm()) return;
 
-            const g = id => document.getElementById(id)?.value.trim() ?? '';
+        const btns = ['checkout-submit-redirect', 'checkout-submit-bricks']
+            .map(id => document.getElementById(id)).filter(Boolean);
+        btns.forEach(b => b.disabled = true);
 
-            try {
-                // 1. Grava o pedido no banco
-                const rPedido = await fetch('backend/api/pedidos.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nome_comprador:     g('checkout-nome'),
-                        email_comprador:    g('checkout-email'),
-                        telefone_comprador: g('checkout-telefone'),
-                        cep:                g('checkout-cep'),
-                        endereco:           g('checkout-endereco'),
-                        numero:             g('checkout-numero'),
-                        complemento:        g('checkout-complemento'),
-                        bairro:             g('checkout-bairro'),
-                        cidade:             g('checkout-cidade'),
-                        estado:             g('checkout-estado'),
-                        produto_id:         this._checkoutProductId,
-                        quantidade:         qty,
-                    }),
-                });
+        const qty = parseInt(document.getElementById('checkout-qty').value) || 1;
+        const g   = id => document.getElementById(id)?.value.trim() ?? '';
 
-                if (!rPedido.ok) {
-                    const err = await rPedido.json().catch(() => ({}));
-                    throw new Error(err.erro || 'Erro ao criar pedido.');
-                }
-                const pedido = await rPedido.json();
+        try {
+            // 1. Grava o pedido no banco
+            const rPedido = await fetch('backend/api/pedidos.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome_comprador:     g('checkout-nome'),
+                    email_comprador:    g('checkout-email'),
+                    telefone_comprador: g('checkout-telefone'),
+                    cep:                g('checkout-cep'),
+                    endereco:           g('checkout-endereco'),
+                    numero:             g('checkout-numero'),
+                    complemento:        g('checkout-complemento'),
+                    bairro:             g('checkout-bairro'),
+                    cidade:             g('checkout-cidade'),
+                    estado:             g('checkout-estado'),
+                    produto_id:         this._checkoutProductId,
+                    quantidade:         qty,
+                }),
+            });
+            if (!rPedido.ok) {
+                const err = await rPedido.json().catch(() => ({}));
+                throw new Error(err.erro || 'Erro ao criar pedido.');
+            }
+            const pedido = await rPedido.json();
 
-                // 2. Fecha checkout e exibe spinner
+            // 2. Cria a preference no Mercado Pago (necessário para ambos os modos)
+            const rPagamento = await fetch('backend/api/pagamento.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedido_id: pedido.pedido_id }),
+            });
+            if (!rPagamento.ok) {
+                const err = await rPagamento.json().catch(() => ({}));
+                throw new Error(err.erro || 'Erro ao criar pagamento.');
+            }
+            const mp = await rPagamento.json();
+
+            this._currentInitPoint = mp.init_point;
+            this._currentPedidoId  = pedido.pedido_id;
+            this._currentToken     = pedido.token;
+
+            if (mode === 'redirect') {
                 bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
                 await new Promise(r => setTimeout(r, 400));
                 new bootstrap.Modal(document.getElementById('paymentRedirectModal')).show();
-
-                // 3. Cria a preference no Mercado Pago
-                const rPagamento = await fetch('backend/api/pagamento.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pedido_id: pedido.pedido_id }),
-                });
-
-                if (!rPagamento.ok) throw new Error('Erro ao criar pagamento.');
-                const mp = await rPagamento.json();
-
-                // 4. Redireciona para o Mercado Pago
-                const mpUrl = mp.init_point || mp.sandbox_url;
-                if (mpUrl) {
-                    window.location.href = mpUrl;
-                }
-
-            } catch (err) {
-                console.error('Checkout error:', err);
-                submitBtn.disabled = false;
-                bootstrap.Modal.getInstance(document.getElementById('paymentRedirectModal'))?.hide();
-
-                // Mostra o erro no topo do modal de checkout
-                const alertEl = document.getElementById('checkout-error-msg');
-                if (alertEl) {
-                    alertEl.textContent = err.message || 'Erro inesperado. Tente novamente.';
-                    alertEl.classList.remove('d-none');
-                    setTimeout(() => alertEl.classList.add('d-none'), 6000);
-                }
+                window.location.href = mp.init_point;
+            } else {
+                // Armazena dados do comprador para o modal de resultado
+                this._buyerName  = g('checkout-nome');
+                this._buyerEmail = g('checkout-email');
+                // Esconde formulário e footer, renderiza o Brick
+                document.getElementById('checkoutForm').classList.add('d-none');
+                document.getElementById('checkout-footer').classList.add('d-none');
+                document.getElementById('bricks-section').classList.remove('d-none');
+                await this._renderBrick(mp.preference_id, g('checkout-email'), pedido.total);
             }
+
+        } catch (err) {
+            console.error('Checkout error:', err);
+            btns.forEach(b => b.disabled = false);
+            const alertEl = document.getElementById('checkout-error-msg');
+            if (alertEl) {
+                alertEl.textContent = err.message || 'Erro inesperado. Tente novamente.';
+                alertEl.classList.remove('d-none');
+                setTimeout(() => alertEl.classList.add('d-none'), 6000);
+            }
+        }
+    }
+
+    async _renderBrick(preferenceId, email, amount) {
+        // Carrega o MP SDK sob demanda — não bloqueia o carregamento inicial da página
+        if (!window.MercadoPago) {
+            await new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://sdk.mercadopago.com/js/v2';
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('Falha ao carregar SDK do Mercado Pago.'));
+                document.head.appendChild(s);
+            });
+        }
+
+        const cfgResp = await fetch('backend/api/public-config.php');
+        const cfg     = await cfgResp.json();
+
+        const isDark  = document.body.classList.contains('dark-mode');
+        const mpSDK   = new MercadoPago(cfg.mp_public_key, { locale: 'pt-BR' });
+        const builder = mpSDK.bricks();
+
+        this._bricksInstance = await builder.create('payment', 'bricks-container', {
+            initialization: {
+                amount,
+                payer: { email, entityType: 'individual' },
+            },
+            customization: {
+                paymentMethods: {
+                    creditCard:   'all',
+                    debitCard:    'all',
+                    ticket:       'all',
+                    bankTransfer: 'all',
+                },
+                visual: {
+                    style: { theme: isDark ? 'dark' : 'default' },
+                },
+            },
+            callbacks: {
+                onReady: () => {},
+                onError: (error) => {
+                    console.error('Brick error:', error);
+                    if (!this._brickErrorHandled && error.type !== 'recoverable_error') {
+                        this._showPaymentError('Ocorreu um erro ao processar o pagamento.<br>Tente novamente em instantes.');
+                    }
+                    this._brickErrorHandled = false;
+                },
+                onSubmit: async ({ formData }) => {
+                    const resp = await fetch('backend/api/processar-pagamento.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pedido_id: this._currentPedidoId,
+                            form_data: formData,
+                        }),
+                    });
+                    const result = await resp.json();
+                    if (!resp.ok) {
+                        const msg = result.erro || 'Erro ao processar pagamento. Tente novamente.';
+                        this._brickErrorHandled = true;
+                        this._showPaymentError(msg);
+                        throw new Error(msg);
+                    }
+                    this._showBricksResult(result);
+                    return result;
+                },
+            },
         });
+    }
+
+    _showBricksResult(result) {
+        const firstName = (this._buyerName  || '').split(' ')[0];
+        const email     =  this._buyerEmail || '';
+
+        const iconEl    = document.getElementById('bricks-result-icon');
+        const titleEl   = document.getElementById('bricks-result-title');
+        const msgEl     = document.getElementById('bricks-result-msg');
+        const trackBtn  = document.getElementById('bricks-result-track-btn');
+
+        if (result.status === 'approved') {
+            iconEl.innerHTML    = '<i class="fas fa-circle-check text-success" style="font-size:3rem;"></i>';
+            titleEl.textContent = 'Pagamento aprovado!';
+            msgEl.innerHTML     = `Obrigado${firstName ? ', <strong>' + firstName + '</strong>' : ''}! Seu pedido foi confirmado.<br>Enviamos os detalhes para <strong>${email}</strong>.`;
+            trackBtn.href       = `acompanhar.html?pedido=${result.pedido_id}&token=${result.token}`;
+            trackBtn.classList.remove('d-none');
+        } else {
+            iconEl.innerHTML    = '<i class="fas fa-clock text-warning" style="font-size:3rem;"></i>';
+            titleEl.textContent = 'Pagamento em análise';
+            msgEl.innerHTML     = `${firstName ? '<strong>' + firstName + '</strong>, seu' : 'Seu'} pedido foi recebido!<br>Assim que confirmado, enviaremos um e-mail para <strong>${email}</strong>.`;
+            trackBtn.classList.add('d-none');
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+        setTimeout(() => {
+            new bootstrap.Modal(document.getElementById('bricksResultModal')).show();
+        }, 450);
+    }
+
+    _showPaymentError(message) {
+        const iconEl   = document.getElementById('bricks-result-icon');
+        const titleEl  = document.getElementById('bricks-result-title');
+        const msgEl    = document.getElementById('bricks-result-msg');
+        const trackBtn = document.getElementById('bricks-result-track-btn');
+
+        iconEl.innerHTML    = '<i class="fas fa-circle-xmark text-danger" style="font-size:3rem;"></i>';
+        titleEl.textContent = 'Pagamento não processado';
+        msgEl.innerHTML     = message || 'Ocorreu um erro ao processar o pagamento.<br>Tente novamente em instantes.';
+        trackBtn.classList.add('d-none');
+
+        bootstrap.Modal.getInstance(document.getElementById('checkoutModal'))?.hide();
+        setTimeout(() => {
+            new bootstrap.Modal(document.getElementById('bricksResultModal')).show();
+        }, 450);
+    }
+
+    _unmountBrick() {
+        this._brickErrorHandled = false;
+        this._bricksInstance?.unmount();
+        this._bricksInstance   = null;
+        this._currentPedidoId  = null;
+        this._currentToken     = null;
+        this._currentInitPoint = null;
+        document.getElementById('checkoutForm')?.classList.remove('d-none');
+        document.getElementById('checkout-footer')?.classList.remove('d-none');
+        document.getElementById('bricks-section')?.classList.add('d-none');
+        const c = document.getElementById('bricks-container');
+        if (c) c.innerHTML = '';
     }
 
     async _buscarCep() {
@@ -508,6 +668,7 @@ class App {
     }
 
     _openCheckoutModal(productName, price, withDelay) {
+        this._unmountBrick();
         document.getElementById('checkout-product-name').textContent = productName;
         document.getElementById('checkout-qty').value = 1;
         this._updateCheckoutTotal(price, 1);
@@ -581,10 +742,13 @@ class App {
 
     async renderProducts() {
         try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 10000);
             const [prodRes, catRes] = await Promise.all([
-                fetch('backend/api/produtos.php'),
-                fetch('backend/api/categorias.php'),
+                fetch('backend/api/produtos.php',  { signal: ctrl.signal }),
+                fetch('backend/api/categorias.php', { signal: ctrl.signal }),
             ]);
+            clearTimeout(timer);
             const produtos   = await prodRes.json();
             const categorias = catRes.ok ? await catRes.json() : [];
 

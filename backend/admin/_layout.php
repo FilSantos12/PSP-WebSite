@@ -85,6 +85,9 @@ function layout_head(string $titulo, string $extra_head = ''): void {
         <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['pedidos.php','pedido-detalhe.php']) ? 'active' : '' ?>" href="<?= $base ?>pedidos.php">
             <i class="fas fa-shopping-cart fa-fw"></i> Pedidos
         </a>
+        <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'tracking-admin.php' ? 'active' : '' ?>" href="<?= $base ?>tracking-admin.php">
+            <i class="fas fa-truck fa-fw"></i> Rastreamento
+        </a>
     </nav>
     <div class="sidebar-footer">
         <div class="text-truncate mb-1" style="color:#fff;"><?= htmlspecialchars($_SESSION['admin_nome'] ?? '') ?></div>
