@@ -37,38 +37,6 @@
       border: none;
     }
 
-    /* Timeline de status */
-    .status-timeline { display: flex; align-items: flex-start; gap: 0; margin: 24px 0; }
-    .tl-step { flex: 1; text-align: center; position: relative; }
-    .tl-step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      top: 18px;
-      left: 50%;
-      width: 100%;
-      height: 3px;
-      background: #dee2e6;
-      z-index: 0;
-    }
-    .tl-step.done:not(:last-child)::after { background: #1a7a3c; }
-    .tl-icon {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: #dee2e6;
-      color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 6px auto;
-      font-size: 14px;
-      position: relative; z-index: 1;
-    }
-    .tl-step.done .tl-icon   { background: #1a7a3c; }
-    .tl-step.active .tl-icon { background: #0d6efd; }
-    .tl-step.error .tl-icon  { background: #c0392b; }
-    .tl-label { font-size: 0.72rem; color: #6c757d; line-height: 1.3; }
-    .tl-step.done .tl-label   { color: #1a7a3c; font-weight: 600; }
-    .tl-step.active .tl-label { color: #0d6efd; font-weight: 600; }
-    .tl-step.error .tl-label  { color: #c0392b; font-weight: 600; }
-
     /* Badge de status */
     .badge-status {
       font-size: 0.85rem;
@@ -91,9 +59,130 @@
 
     .item-row td { vertical-align: middle; font-size: 0.88rem; }
 
-    #resultSection { display: none; }
-    #errorSection  { display: none; }
-    #loadingSection { display: none; }
+    /* ── Step Tracker (rastreamento físico) ─────────────────────────────── */
+
+    .step-tracker {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 0;
+        padding: 1.5rem 0 1rem;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        min-width: 70px;
+        position: relative;
+    }
+    .step-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        border: 2px solid #dee2e6;
+        background: #fff;
+        color: #adb5bd;
+        transition: all 0.4s ease;
+        position: relative;
+        z-index: 1;
+    }
+    /* Linha conectora */
+    .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 25px;
+        left: calc(50% + 27px);
+        right: calc(-50% + 27px);
+        height: 2px;
+        background: #dee2e6;
+        transition: background 0.4s ease;
+        z-index: 0;
+    }
+    /* Concluída */
+    .step.completed .step-icon {
+        background: #1a7a3c;
+        border-color: #1a7a3c;
+        color: #fff;
+    }
+    .step.completed::after { background: #1a7a3c; }
+    /* Ativa */
+    .step.active .step-icon {
+        border-color: var(--primary, #274185);
+        color: var(--primary, #274185);
+        box-shadow: 0 0 0 4px rgba(39,65,133,0.15);
+        animation: pulse-step 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-step {
+        0%, 100% { box-shadow: 0 0 0 4px rgba(39,65,133,0.15); }
+        50%       { box-shadow: 0 0 0 8px rgba(39,65,133,0.08); }
+    }
+    /* Pendente */
+    .step.pending .step-icon { opacity: 0.4; }
+
+    .step-label {
+        margin-top: 0.5rem;
+        font-size: 0.7rem;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
+        text-align: center;
+        color: #6c757d;
+        max-width: 80px;
+    }
+    .step.completed .step-label,
+    .step.active    .step-label { color: var(--primary, #274185); font-weight: 600; }
+
+    /* Caixa do código de rastreio */
+    .tracking-code-box {
+        margin-top: 1rem;
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius, 12px);
+        border: 1px dashed var(--primary, #274185);
+        background: rgba(39,65,133,0.05);
+    }
+    .tracking-code-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0.4rem 0 0.75rem;
+        flex-wrap: wrap;
+    }
+    .tracking-code-row strong {
+        font-family: monospace;
+        font-size: 1.1rem;
+        letter-spacing: 0.05em;
+        color: var(--primary, #274185);
+    }
+
+    @media (max-width: 768px) {
+        .step-tracker {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 1rem 0.5rem;
+            gap: 1rem;
+        }
+        .step {
+            flex-direction: row;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            min-width: unset;
+        }
+        .step:not(:last-child)::after {
+            top: 52px;
+            left: 25px;
+            right: unset;
+            width: 2px;
+            height: calc(100% + 1rem);
+        }
+        .step-label { text-align: left; max-width: unset; font-size: 0.82rem; }
+    }
   </style>
 </head>
 <body>
@@ -112,42 +201,47 @@
 
 <div class="container pb-5">
 
-  <!-- Formulário de busca -->
-  <div class="card search-card p-4">
+  <!-- Formulário de busca — visível por padrão; JS esconde quando há token -->
+  <div id="noTokenSection" class="card search-card p-4">
     <h5 class="fw-bold mb-1" style="color:var(--primary,#274185);">
-      <i class="fas fa-search me-2"></i>Acompanhar Pedido
+      <i class="fas fa-truck me-2"></i>Acompanhar Pedido
     </h5>
-    <p class="text-muted small mb-4">Informe o número do pedido e o e-mail usado na compra.</p>
+    <p class="text-muted small mb-3">Informe o número do pedido e o e-mail utilizado na compra.</p>
 
-    <form id="searchForm">
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Número do Pedido</label>
-        <input type="number" id="inputPedidoId" class="form-control" placeholder="Ex: 42" min="1" required>
-      </div>
-      <div class="mb-4">
-        <label class="form-label fw-semibold">E-mail utilizado na compra</label>
-        <input type="email" id="inputEmail" class="form-control" placeholder="seu@email.com" required>
-      </div>
-      <button type="submit" class="btn btn-primary w-100 fw-semibold">
-        <i class="fas fa-search me-2"></i>Consultar Pedido
-      </button>
-    </form>
+    <div class="mb-3">
+      <label class="form-label small fw-semibold mb-1" for="searchPedidoId">Número do Pedido</label>
+      <input type="number" id="searchPedidoId" class="form-control" placeholder="Ex: 42" min="1">
+    </div>
+    <div class="mb-3">
+      <label class="form-label small fw-semibold mb-1" for="searchEmail">E-mail da compra</label>
+      <input type="email" id="searchEmail" class="form-control" placeholder="seu@email.com">
+    </div>
+
+    <div id="searchError" class="alert alert-danger py-2 small mb-3 d-none"></div>
+
+    <button id="searchBtn" class="btn btn-primary w-100">
+      <i class="fas fa-search me-1"></i>Buscar Pedido
+    </button>
+
+    <p class="text-center text-muted small mt-3 mb-0">
+      <i class="fas fa-envelope me-1"></i>Tem o link do e-mail de confirmação? Use-o para abrir automaticamente.
+    </p>
   </div>
 
   <!-- Loading -->
-  <div id="loadingSection" class="text-center mt-4">
+  <div id="loadingSection" class="text-center mt-4" style="display:none;">
     <div class="spinner-border text-primary" role="status"></div>
     <p class="text-muted mt-2 small">Buscando seu pedido...</p>
   </div>
 
   <!-- Erro -->
-  <div id="errorSection" class="alert alert-danger result-card mt-4" role="alert">
+  <div id="errorSection" class="alert alert-danger result-card mt-4" role="alert" style="display:none;">
     <i class="fas fa-exclamation-circle me-2"></i>
     <span id="errorMsg"></span>
   </div>
 
   <!-- Resultado -->
-  <div id="resultSection" class="card result-card p-4">
+  <div id="resultSection" class="card result-card p-4" style="display:none;">
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
@@ -159,24 +253,47 @@
       <span id="rStatusBadge" class="badge-status"></span>
     </div>
 
-    <!-- Timeline -->
-    <div class="status-timeline" id="rTimeline">
-      <div class="tl-step" id="tlRecebido">
-        <div class="tl-icon"><i class="fas fa-check"></i></div>
-        <div class="tl-label">Pedido<br>Recebido</div>
+    <!-- Timeline unificada -->
+    <div class="step-tracker" id="unifiedTimeline">
+      <div class="step" data-step="0">
+        <div class="step-icon"><i class="fas fa-check"></i></div>
+        <div class="step-label">Pedido<br>Recebido</div>
       </div>
-      <div class="tl-step" id="tlPagamento">
-        <div class="tl-icon"><i class="fas fa-credit-card"></i></div>
-        <div class="tl-label">Pagamento<br>Confirmado</div>
+      <div class="step" data-step="1">
+        <div class="step-icon"><i class="fas fa-credit-card"></i></div>
+        <div class="step-label">Pagamento<br>Confirmado</div>
       </div>
-      <div class="tl-step" id="tlProcessando">
-        <div class="tl-icon"><i class="fas fa-box"></i></div>
-        <div class="tl-label">Em<br>Processamento</div>
+      <div class="step" data-step="2">
+        <div class="step-icon"><i class="fas fa-box-open"></i></div>
+        <div class="step-label">Em<br>Preparação</div>
       </div>
-      <div class="tl-step" id="tlEnviado">
-        <div class="tl-icon"><i class="fas fa-truck"></i></div>
-        <div class="tl-label">Enviado /<br>Entregue</div>
+      <div class="step" data-step="3">
+        <div class="step-icon"><i class="fas fa-box"></i></div>
+        <div class="step-label">Embalado</div>
       </div>
+      <div class="step" data-step="4">
+        <div class="step-icon"><i class="fas fa-truck"></i></div>
+        <div class="step-label">Enviado</div>
+      </div>
+      <div class="step" data-step="5">
+        <div class="step-icon"><i class="fas fa-barcode"></i></div>
+        <div class="step-label">Código de<br>Rastreio</div>
+      </div>
+    </div>
+
+    <!-- Caixa do código de rastreio (visível apenas no step 5) -->
+    <div class="tracking-code-box" id="shippingCodeBox" style="display:none;">
+      <div class="small text-muted mb-1">Código de Rastreio</div>
+      <div class="tracking-code-row">
+        <strong id="shippingCodeDisplay"></strong>
+        <button id="copyCodeBtn" class="btn btn-sm btn-outline-primary" title="Copiar código">
+          <i class="fas fa-copy me-1"></i>Copiar
+        </button>
+      </div>
+      <a id="shippingCorreiosLink" href="#" target="_blank" rel="noopener" class="btn btn-sm btn-primary">
+        <i class="fas fa-external-link-alt me-1"></i>Rastrear nos Correios
+      </a>
+      <div class="small text-muted mt-2" id="shippingCarrierLabel"></div>
     </div>
 
     <hr>
@@ -219,18 +336,6 @@
       </div>
     </div>
 
-    <!-- Código de rastreio Correios -->
-    <div id="rRastreioBox" style="display:none; margin-top:20px; background:#f0f4ff; border:1px solid #b8cef5; border-radius:10px; padding:16px 20px; text-align:center;">
-      <div style="font-size:11px; color:#555; letter-spacing:1px; margin-bottom:6px; text-transform:uppercase;">Código de Rastreio</div>
-      <div id="rRastreioCodigo" style="font-size:20px; font-weight:700; letter-spacing:3px; color:#274185; font-family:monospace;"></div>
-      <div style="margin-top:12px;">
-        <a id="rRastreioLink" href="#" target="_blank" rel="noopener"
-           style="display:inline-block; background:#274185; color:#fff; padding:8px 20px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:600;">
-          <i class="fas fa-external-link-alt me-1"></i>Rastrear nos Correios
-        </a>
-      </div>
-    </div>
-
     <!-- Mensagem de status -->
     <div id="rMensagem" class="alert mt-4 mb-0" style="display:none;"></div>
 
@@ -269,33 +374,80 @@
     enviado:          { label: 'Enviado',          cls: 'badge-enviado',          tl: 4,  msg: null },
   };
 
-  function renderTimeline(status) {
-    const tlSteps = ['tlRecebido', 'tlPagamento', 'tlProcessando', 'tlEnviado'];
-    const cfg     = statusConfig[status] || { tl: 0 };
+  // ── Timeline unificada (6 passos) ───────────────────────────────────────────
+  const STEP_ICONS    = ['fa-check','fa-credit-card','fa-box-open','fa-box','fa-truck','fa-barcode'];
+  const PAYMENT_OK    = ['aprovado','em_processamento','enviado'];
+  const PAYMENT_ERROR = ['recusado','cancelado','reembolsado','contestado'];
 
-    // Limpa classes
-    tlSteps.forEach(id => {
-      const el = $(id);
-      el.classList.remove('done', 'active', 'error');
-    });
+  function renderUnifiedTimeline(status, trackingStatus, trackingCode, trackingUrl, carrier) {
+    const paymentOk = PAYMENT_OK.includes(status);
+    const isError   = PAYMENT_ERROR.includes(status);
 
-    if (cfg.tl < 0) {
-      // Status negativo: recebido done, pagamento com erro
-      $('tlRecebido').classList.add('done');
-      $('tlPagamento').classList.add('error');
-      $('tlPagamento').querySelector('.tl-icon i').className = 'fas fa-times';
-      return;
+    // Calcula passo atual (0-5)
+    let currentStep;
+    if (isError) {
+      currentStep = 1; // erro no pagamento
+    } else if (paymentOk) {
+      // Passos 0-1 concluídos; tracking determina 2-5
+      currentStep = trackingStatus >= 0 ? 2 + Math.min(trackingStatus, 3) : 2;
+    } else {
+      currentStep = 1; // pendente/em_analise — aguardando pagamento
     }
 
-    // Preenche até o step atual
-    tlSteps.forEach((id, idx) => {
-      if (idx < cfg.tl) {
-        $(id).classList.add('done');
-      } else if (idx === cfg.tl) {
-        $(id).classList.add('active');
+    document.querySelectorAll('#unifiedTimeline .step').forEach(step => {
+      const n    = parseInt(step.dataset.step);
+      const icon = step.querySelector('.step-icon i');
+      step.classList.remove('completed', 'active', 'pending', 'error');
+      icon.className = 'fas ' + STEP_ICONS[n];
+
+      if (isError && n === 1) {
+        step.classList.add('error');
+        icon.className = 'fas fa-times';
+      } else if (n < currentStep) {
+        step.classList.add('completed');
+      } else if (n === currentStep) {
+        step.classList.add('active');
+      } else {
+        step.classList.add('pending');
       }
     });
+
+    // Caixa de código de rastreio — só no step 5 com código
+    const codeBox = $('shippingCodeBox');
+    if (currentStep === 5 && trackingCode) {
+      $('shippingCodeDisplay').textContent    = trackingCode;
+      $('shippingCorreiosLink').href          = trackingUrl || '#';
+      $('shippingCorreiosLink').style.display = trackingUrl ? '' : 'none';
+      $('shippingCarrierLabel').textContent   = carrier ? 'Transportadora: ' + carrier : '';
+      codeBox.style.display = '';
+    } else {
+      codeBox.style.display = 'none';
+    }
   }
+
+  async function fetchShippingTracking(status, orderId) {
+    try {
+      const res  = await fetch('backend/api/tracking.php?order_id=' + encodeURIComponent(orderId));
+      const data = await res.json();
+      if (res.ok) {
+        renderUnifiedTimeline(status, data.status, data.tracking_code, data.tracking_url, data.carrier);
+      } else {
+        renderUnifiedTimeline(status, 0, null, null, null);
+      }
+    } catch (_) {
+      renderUnifiedTimeline(status, 0, null, null, null);
+    }
+  }
+
+  // Botão copiar código
+  document.getElementById('copyCodeBtn')?.addEventListener('click', function () {
+    const code = $('shippingCodeDisplay').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      this.innerHTML = '<i class="fas fa-check me-1"></i>Copiado!';
+      setTimeout(() => { this.innerHTML = '<i class="fas fa-copy me-1"></i>Copiar'; }, 2000);
+    });
+  });
+  // ── /Timeline unificada ──────────────────────────────────────────────────────
 
   function renderPedido(data) {
     const p   = data.pedido;
@@ -310,8 +462,6 @@
     const badge = $('rStatusBadge');
     badge.textContent  = cfg.label;
     badge.className    = 'badge-status ' + cfg.cls;
-
-    renderTimeline(p.status);
 
     // Endereço
     const partes = [
@@ -340,15 +490,6 @@
 
     $('rTotal').textContent = fmt(p.total);
 
-    // Código de rastreio
-    if (p.codigo_rastreio) {
-      $('rRastreioCodigo').textContent = p.codigo_rastreio;
-      $('rRastreioLink').href = 'https://rastreamento.correios.com.br/app/index.php?objeto=' + encodeURIComponent(p.codigo_rastreio);
-      $('rRastreioBox').style.display = '';
-    } else {
-      $('rRastreioBox').style.display = 'none';
-    }
-
     // Mensagem de status
     if (cfg.msg) {
       const el = $('rMensagem');
@@ -363,6 +504,14 @@
     $('loadingSection').style.display = 'none';
     $('resultSection').style.display  = '';
     $('errorSection').style.display   = 'none';
+
+    // Renderiza timeline: se pagamento confirmado, busca tracking; senão renderiza direto
+    if (PAYMENT_OK.includes(p.status)) {
+      renderUnifiedTimeline(p.status, 0, null, null, null); // estado inicial enquanto carrega
+      fetchShippingTracking(p.status, p.id);
+    } else {
+      renderUnifiedTimeline(p.status, -1, null, null, null);
+    }
   }
 
   function showError(msg) {
@@ -392,26 +541,45 @@
     }
   }
 
-  // Carrega via URL params (link do e-mail)
-  const qs = new URLSearchParams(location.search);
-  if (qs.get('token')) {
-    buscar({ token: qs.get('token') });
-  } else if (qs.get('pedido') && qs.get('email')) {
-    $('inputPedidoId').value = qs.get('pedido');
-    $('inputEmail').value    = qs.get('email');
-    buscar({ pedido_id: qs.get('pedido'), email: qs.get('email') });
-  } else if (qs.get('pedido')) {
-    $('inputPedidoId').value = qs.get('pedido');
+  // ── Busca manual (sem token) ────────────────────────────────────────────────
+  function buscarManual() {
+    const pedidoId = document.getElementById('searchPedidoId').value.trim();
+    const email    = document.getElementById('searchEmail').value.trim();
+    const errEl    = document.getElementById('searchError');
+
+    errEl.classList.add('d-none');
+
+    if (!pedidoId || isNaN(parseInt(pedidoId, 10))) {
+      errEl.textContent = 'Informe um número de pedido válido.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    if (!email) {
+      errEl.textContent = 'Informe o e-mail utilizado na compra.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+
+    $('noTokenSection').style.display = 'none';
+    buscar({ pedido_id: pedidoId, email });
   }
 
-  // Envio do formulário
-  $('searchForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    const pid   = $('inputPedidoId').value.trim();
-    const email = $('inputEmail').value.trim();
-    if (!pid || !email) return;
-    buscar({ pedido_id: pid, email });
+  // ── Event listeners do formulário de busca ──────────────────────────────────
+  document.getElementById('searchBtn').addEventListener('click', buscarManual);
+  ['searchPedidoId', 'searchEmail'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') buscarManual();
+    });
   });
+
+  // ── Entry point ─────────────────────────────────────────────────────────────
+  // noTokenSection é visível por padrão; escondemos apenas quando há token na URL
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('token')) {
+    $('noTokenSection').style.display = 'none';
+    buscar({ token: qs.get('token') });
+  }
+  // Sem token → formulário permanece visível (estado padrão do HTML)
 })();
 </script>
 

@@ -9,7 +9,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | Arquivo | Função |
 |---|---|
 | `index.html` | Página única |
-| `acompanhar.html` | Página de acompanhamento de pedido (standalone) |
+| `acompanhar.html` | Página de acompanhamento de pedido (standalone, acesso só por token) |
 | `style.css` | Estilos com CSS variables |
 | `script.js` | Classe `App` com toda a lógica |
 | `manifest.json` | PWA básico |
@@ -36,9 +36,17 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 
 ## Página de Acompanhamento (`acompanhar.html`)
 - Standalone — não depende de `index.html`
-- **Busca por token** (link do e-mail ou retorno do MP): `acompanhar.html?pedido=X&token=abc123`
-- **Busca manual**: formulário com pedido_id + e-mail
-- Exibe: status badge, timeline visual (4 etapas), itens do pedido, endereço, dados do comprador
+- **Acesso via token**: `acompanhar.html?token=abc123` ou `acompanhar.html?pedido=X&token=abc123`
+- **Formulário de busca manual**: quando não há token na URL, exibe form com `pedido_id` + e-mail; ao submeter chama `buscarManual()` que chama `buscar({ pedido_id, email })`
+- **Timeline unificada de 6 etapas** (`#unifiedTimeline`):
+  1. Pedido Recebido — sempre ativo
+  2. Pagamento Confirmado — ativo se status `aprovado/em_processamento` (erro se `recusado/cancelado/reembolsado/contestado`)
+  3. Em Preparação — controlado por `order_tracking.status >= 0`
+  4. Embalado — `order_tracking.status >= 1`
+  5. Enviado — `order_tracking.status >= 2`
+  6. Código de Rastreio — `order_tracking.status >= 3` (exibe código e link dos Correios)
+- Exibe: status badge, timeline, itens do pedido, endereço, dados do comprador
+- **CSS bug crítico**: nunca esconder seções via stylesheet (`#id { display:none }`) — JS usa `element.style.display = ''` que não sobrescreve regras CSS. Usar `style="display:none;"` inline no HTML para que o JS consiga mostrar/esconder.
 - API: `GET /backend/api/acompanhar.php?token=...` ou `?pedido_id=X&email=Y`
 
 ## Categorias
@@ -50,9 +58,10 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - Novos filtros do catálogo e badges de produto refletem novas categorias sem alterar código
 
 ## E-mails transacionais (`backend/helpers/email.php`)
-- `emailPedidoCriado($pedido, $itens, $token)` — disparado em `pedidos.php` ao criar o pedido; inclui link de acompanhamento
-- `emailPagamentoAprovado($pedido, $itens, $token)` — disparado em `webhook.php` na primeira transição para `aprovado`
-- Envio via `mail()` nativo do PHP — **não funciona em localhost**, funciona em hospedagem compartilhada
+- `emailPedidoCriado($pedido, $itens, $token)` — disparado em `pedidos.php` ao criar o pedido; inclui botão "Acompanhar Pedido" com link `{MP_BASE_URL}/acompanhar.html?pedido={id}&token={token}`
+- `emailPagamentoAprovado($pedido, $itens, $token)` — disparado em `webhook.php` e `processar-pagamento.php` na primeira transição para `aprovado`; inclui mesmo link de acompanhamento
+- `emailPedidoEnviado()` — existe no código mas não é mais chamado (status 'enviado' removido do fluxo)
+- Envio via `mail()` nativo do PHP — **não funciona em localhost** (DEV-SKIP no log), funciona em hospedagem compartilhada
 - Logs de envio em `logs/emails.log`
 - `MP_BASE_URL` (de `mercadopago.php`) é usado como base dos links nos e-mails
 
@@ -64,23 +73,40 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - `setupContactForm()` → `submitForm()` — fetch para FormSubmit.co
 - `setupCounters()` — Intersection Observer nos `.stat-number`
 - `setupModalButtons()` — botão "Solicitar Orçamento" preenche formulário de contato
-- `setupCheckout()` — checkout completo: dados pessoais + endereço ViaCEP, valida inline, grava pedido, redireciona para MP via `init_point`
+- `setupCheckout()` — registra listeners dos dois botões de pagamento (redirect e Bricks), link de fallback redirect dentro do Brick, e limpeza do Brick ao fechar o modal
 - `setupImageLightbox()` — lightbox customizado para `img.card-img-top`, `img.carousel-img`, `img.modal-product-image`
 - `renderProducts()` — busca categorias e produtos em paralelo (`Promise.all`); gera botões de filtro dinamicamente em `#product-filters`; gera cards e modais em `#products-grid` / `#product-modals`; desabilita botão se estoque = 0
 - `handleRetornoMP()` — detecta `?pagamento=recusado|pendente` na URL após retorno do MP; limpa o param com `history.replaceState`; exibe modal apropriado
+- `_validateCheckoutForm()` — valida campos obrigatórios com `is-invalid`, foca no primeiro inválido
+- `_doCheckoutSubmit(mode)` — fluxo unificado: valida, grava pedido, cria preference; bifurca por `mode`: `'redirect'` abre `paymentRedirectModal` e redireciona; `'bricks'` esconde form/footer e renderiza o Brick
+- `_renderBrick(preferenceId, email, amount)` — busca Public Key em `public-config.php`, inicializa `MercadoPago` SDK com locale pt-BR e tema dark/light; cria Payment Brick no `#bricks-container`; no `onSubmit` chama `processar-pagamento.php` e exibe `_showBricksResult()`
+- `_showBricksResult(result)` — fecha o modal de checkout e abre `#bricksResultModal` com ícone, mensagem personalizada (nome + e-mail do comprador) e botão "Acompanhar pedido" (apenas para `approved`)
+- `_unmountBrick()` — desmonta instância do Brick, reseta estado (`_bricksInstance`, `_currentPedidoId`, `_currentToken`, `_currentInitPoint`), restaura visibilidade do form e footer
+- `_openCheckoutModal()` — chama `_unmountBrick()` antes de abrir para garantir estado limpo
 - `_buscarCep()` — consulta ViaCEP e preenche campos de endereço automaticamente
 
 ## Fluxo de compra
 1. Clicar em **botão verde de carrinho** (card) ou **"Comprar Agora"** (modal de produto)
 2. Modal de checkout (`modal-lg`) abre com resumo do produto + controle de quantidade
-3. Preencher: nome, e-mail, telefone, CEP (auto-preenche endereço via ViaCEP), número, complemento (opcional)
-4. Clicar em **"Ir para pagamento"** → validação inline (campos obrigatórios: nome, e-mail, telefone, CEP, número)
-5. Spinner de redirecionamento → `window.location.href = mp.init_point`
-6. Pagamento processado no Mercado Pago → webhook atualiza status do pedido no banco
-7. **Retorno do MP:**
-   - `aprovado` → redireciona para `acompanhar.html?pedido=X&token=Y` (token incluído na `back_url.success`)
-   - `recusado` → homepage com modal de erro
-   - `pendente` → homepage com modal informando análise
+3. Preencher: nome, e-mail, telefone, CEP (auto-preenche via ViaCEP), número, complemento (opcional)
+4. Validação inline (campos obrigatórios: nome, e-mail, telefone, CEP, número)
+5. Escolher forma de pagamento:
+
+**Opção A — Pagar no Mercado Pago (redirect)**
+- Spinner de redirecionamento → `window.location.href = mp.init_point`
+- Pagamento processado no site do MP → webhook atualiza status no banco
+- `aprovado` → redireciona para `acompanhar.html?pedido=X&token=Y`
+- `recusado` → homepage com modal de erro
+- `pendente` → homepage com modal informando análise
+
+**Opção B — Pagar aqui mesmo (Checkout Bricks)**
+- Form e footer somem; Payment Brick renderiza inline (cartão, débito, PIX, boleto)
+- Usuário preenche dados de pagamento no próprio site
+- `onSubmit` do Brick chama `processar-pagamento.php` → MP Payments API
+- Resultado exibido em `#bricksResultModal` com nome e e-mail do comprador:
+  - `approved` → ✅ "Pagamento aprovado!" + botão "Acompanhar pedido"
+  - `pending` → ⏳ "Pagamento em análise" + instrução de aguardar e-mail
+- Link "Pagar pelo site do MP" dentro do Brick permite trocar para Opção A sem reiniciar
 
 ## Lightbox de imagem
 - Overlay customizado (`z-index: 9999`) — não usa Bootstrap Modal, evita conflito com modais abertos
@@ -149,6 +175,21 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 
 ### Tabela `pedidos`
 - id, nome/email/telefone_comprador, endereço completo, total, status, mp_preferencia_id, token_acompanhamento, criado_em
+- Status válidos: `pendente`, `aprovado`, `em_analise`, `recusado`, `cancelado`, `reembolsado`, `contestado`, `em_processamento` — **`enviado` foi removido** (rastreamento físico é gerenciado exclusivamente em `tracking-admin.php`)
+
+### Tabela `order_tracking`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| order_id | TEXT UNIQUE | FK para `pedidos.id` (como string) |
+| status | INTEGER | 0 = Em Preparação, 1 = Embalado, 2 = Enviado, 3 = Código de Rastreio |
+| tracking_code | TEXT | Código dos Correios (formato `AA000000000BR`) |
+| carrier | TEXT | Transportadora |
+| notes | TEXT | Observações internas |
+| updated_at | TEXT | Timestamp no fuso de Brasília |
+
+- Criada automaticamente via `INSERT OR IGNORE` com `status = 0` quando o pagamento é aprovado (em `webhook.php` e `processar-pagamento.php`)
+- Gerenciada exclusivamente em `backend/admin/tracking-admin.php`
+- API pública: `GET /backend/api/tracking.php?order_id=X`
 
 ### Tabela `itens_pedido`
 - id, pedido_id (CASCADE), produto_id (RESTRICT), quantidade, preco_unitario
@@ -230,19 +271,56 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 ## Roadmap de e-commerce
 | Fase | Descrição | Status |
 |---|---|---|
-| Fase 5 | Frontend — preços, checkout modal, lightbox | ✅ Concluído |
 | Fase 1 | Banco de dados SQLite (schema + setup.php) | ✅ Concluído |
 | Fase 2 | Backend PHP + API (produtos, pedidos, pagamento stub, webhook stub) | ✅ Concluído |
 | Fase 3 | Integração Mercado Pago Checkout Pro | ✅ Concluído |
 | Fase 4 | Área Admin (dashboard, CRUD produtos, pedidos, login) | ✅ Concluído |
+| Fase 5 | Frontend — preços, checkout modal, lightbox | ✅ Concluído |
 | Fase 6 | Acompanhamento de pedido — página + e-mails transacionais | ✅ Concluído |
 | Fase 7 | Admin produtos: código interno, data sheet, múltiplas imagens, especificação técnica | ✅ Concluído |
 | Fase 8 | Gestão de categorias + filtros dinâmicos + retorno MP pós-pagamento | ✅ Concluído |
+| Fase 9 | Checkout Bricks (pagamento inline) + modal pós-pagamento + simplificação de acompanhamento | ✅ Concluído |
+| Fase 10 | Rastreamento de entrega (order_tracking) + timeline unificada + correção de timezone | ✅ Concluído |
+
+## Módulo Admin de Pedidos
+
+- `backend/admin/pedidos.php` — listagem com filtro de status, busca por nome/e-mail
+- `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens e status; permite atualizar apenas o status do pedido; **não gerencia rastreamento** (link para `tracking-admin.php`)
+- `backend/admin/tracking-admin.php` — única interface para atualizar `order_tracking` (status de envio, código de rastreio, transportadora, notas)
+
+## Timezone
+
+- **Fuso horário:** `America/Sao_Paulo` em todas as camadas PHP
+- `backend/api/_core.php` — `date_default_timezone_set('America/Sao_Paulo')` para todos os endpoints da API
+- `backend/admin/_auth.php` — `date_default_timezone_set('America/Sao_Paulo')` para todas as páginas admin
+- **`CURRENT_TIMESTAMP` do SQLite é sempre UTC** — todos os inserts/updates que gravam timestamps usam PHP `date('Y-m-d H:i:s')` como parâmetro PDO (não `CURRENT_TIMESTAMP`) para garantir o fuso correto
+- `criado_em` de pedidos: passado explicitamente no INSERT de `pedidos.php`
+- `updated_at` de `order_tracking`: passado como `:now` em `tracking.php`, `webhook.php` e `processar-pagamento.php`
+
+## Módulo de Pagamento — Arquivos Backend
+
+| Arquivo | Função |
+|---|---|
+| `backend/api/pagamento.php` | Cria preference no MP (usada por ambos os modos); retorna `preference_id` e `init_point` |
+| `backend/api/processar-pagamento.php` | Processa pagamento via MP Payments API (modo Bricks); recebe `{ pedido_id, form_data }` do frontend; `transaction_amount` sempre vem do banco (não do cliente) |
+| `backend/api/public-config.php` | Retorna `{ mp_public_key }` para o frontend inicializar o SDK do MP com segurança |
+
+### SDK do MP no frontend
+- Carregado via CDN: `https://sdk.mercadopago.com/js/v2`
+- Inicializado em `_renderBrick()` com a Public Key de teste (`backend/api/public-config.php`)
+- Tema automático: `dark` se `body.dark-mode` estiver ativo, `default` caso contrário
+- Locale: `pt-BR`
+
+### Credenciais do MP (desenvolvimento vs produção)
+- **Teste:** Public Key e Access Token do app de teste do MP (`APP_USR-` ou `TEST-`)
+- **Produção:** trocar ambas as chaves em `backend/config/mercadopago.php` antes do deploy
+- **Importante:** Public Key e Access Token devem ser do **mesmo ambiente** (ambas teste ou ambas produção) — misturar resulta em erro 401 `"Unauthorized use of live credentials"`
+- **ngrok em Windows:** antivírus com inspeção SSL (Kaspersky, Avast, Bitdefender etc.) bloqueia a autenticação do ngrok com erro `x509: certificate is not valid for any names` — desativar inspeção SSL ou o antivírus temporariamente durante desenvolvimento
 
 ## Decisões técnicas
 - **Backend:** PHP (familiaridade do desenvolvedor)
 - **Banco de dados:** SQLite (arquivo `.db` junto ao projeto, PDO nativo, sem driver extra, compatível com hospedagem compartilhada)
-- **Pagamentos:** Mercado Pago **Checkout Pro** (redirect), SDK `mercadopago/dx-php` via Composer
+- **Pagamentos:** Mercado Pago **Checkout Pro** (redirect) + **Checkout Bricks** (inline), SDK `mercadopago/dx-php` via Composer
 - **TypeScript:** descartado — JS puro suficiente para o escopo do projeto
 - **SQL Server:** descartado — requer driver `pdo_sqlsrv` e servidor dedicado, inviável em hospedagem compartilhada
 - **`init_point` em vez de `sandbox_init_point`:** evita `ERR_TOO_MANY_REDIRECTS` no subdomínio `sandbox.mercadopago.com.br`; com credenciais de teste o pagamento ainda é processado como teste
@@ -260,6 +338,10 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - **Categorias dinâmicas:** tabela `categorias` é a fonte de verdade; filtros do catálogo e selects do admin sempre refletem o banco sem alteração de código
 - **Filtro com event delegation:** `setupProductFilter()` usa um único listener no container `#product-filters` e consulta `.product-col` no momento do clique — evita NodeList stale após re-render
 - **Migrations via sqlite3 CLI:** colunas adicionadas após o setup inicial foram aplicadas diretamente com `sqlite3 database.db "ALTER TABLE ..."` — não requerem re-executar setup.php
+- **Checkout Bricks:** Payment Brick inicializado com `preferenceId` (para pré-carregar valor e métodos da preference) + `payer.email` + `amount`; `transaction_amount` sobrescrito no backend pelo valor do banco via `array_merge($formData, [...])`
+- **Modal pós-Bricks (`#bricksResultModal`):** exibido após `onSubmit` do Brick resolver; fecha o modal de checkout (desmontando o Brick via `hidden.bs.modal`) e abre o modal de resultado 450ms depois; exibe nome/e-mail do comprador armazenados em `_buyerName`/`_buyerEmail`
+- **Acompanhar.html com busca dupla:** acesso via token na URL (e-mail + modal pós-pagamento) ou via formulário manual (pedido_id + e-mail); sem token na URL o formulário fica visível por padrão (não usa `style="display:none;"` no HTML — o JS esconde apenas quando há token)
+- **Timeline unificada em `acompanhar.html`:** 6 etapas combinam status do pedido (`pedidos.status`) e status de entrega (`order_tracking.status`) em uma única barra de progresso — substituiu a dupla timeline anterior (status badge separado + rastreamento separado)
 
 ## Placeholders pendentes (necessários antes do deploy)
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)

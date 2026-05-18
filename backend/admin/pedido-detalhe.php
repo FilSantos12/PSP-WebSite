@@ -2,7 +2,6 @@
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/_layout.php';
-require_once __DIR__ . '/../helpers/email.php';
 
 $pdo = getDB();
 $id  = (int) ($_GET['id'] ?? 0);
@@ -26,30 +25,19 @@ $itens = $pdo->prepare("
 $itens->execute([':id' => $id]);
 $itens = $itens->fetchAll(PDO::FETCH_ASSOC);
 
-$statusValidos = ['pendente','aprovado','em_analise','recusado','cancelado','reembolsado','contestado','em_processamento','enviado'];
+$statusValidos = ['pendente','aprovado','em_analise','recusado','cancelado','reembolsado','contestado','em_processamento'];
 $mensagemSucesso = '';
 
 // Atualização de status manual
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status'])) {
-    $novoStatus   = $_POST['status'];
-    $novoRastreio = trim($_POST['codigo_rastreio'] ?? '');
+    $novoStatus = $_POST['status'];
 
     if (in_array($novoStatus, $statusValidos)) {
-        $rastreioAnterior = $pedido['codigo_rastreio'] ?? '';
+        $pdo->prepare("UPDATE pedidos SET status = :status WHERE id = :id")
+            ->execute([':status' => $novoStatus, ':id' => $id]);
 
-        $pdo->prepare("UPDATE pedidos SET status = :status, codigo_rastreio = :rastreio WHERE id = :id")
-            ->execute([':status' => $novoStatus, ':rastreio' => $novoRastreio ?: null, ':id' => $id]);
-
-        $pedido['status']          = $novoStatus;
-        $pedido['codigo_rastreio'] = $novoRastreio;
-
-        // Dispara e-mail apenas na primeira vez que o código é inserido com status "enviado"
-        if ($novoStatus === 'enviado' && $novoRastreio !== '' && empty($rastreioAnterior)) {
-            emailPedidoEnviado($pedido, $itens, $pedido['token_acompanhamento'] ?? '', $novoRastreio);
-            $mensagemSucesso = 'Status atualizado e e-mail de rastreio enviado ao comprador.';
-        } else {
-            $mensagemSucesso = 'Status atualizado com sucesso.';
-        }
+        $pedido['status'] = $novoStatus;
+        $mensagemSucesso  = 'Status atualizado com sucesso.';
     }
 }
 
@@ -131,8 +119,8 @@ layout_head('Pedido #' . $id);
                     R$ <?= number_format($pedido['total'], 2, ',', '.') ?>
                 </div>
                 <form method="POST">
-                    <div class="d-flex gap-2 align-items-center mb-3">
-                        <select name="status" id="statusSelect" class="form-select form-select-sm" onchange="toggleRastreio()">
+                    <div class="d-flex gap-2 align-items-center">
+                        <select name="status" class="form-select form-select-sm">
                             <?php foreach ($statusValidos as $s): ?>
                                 <option value="<?= $s ?>" <?= $pedido['status'] === $s ? 'selected' : '' ?>>
                                     <?= match($s) {
@@ -144,7 +132,6 @@ layout_head('Pedido #' . $id);
                                         'reembolsado'      => 'Reembolsado',
                                         'contestado'       => 'Contestado',
                                         'em_processamento' => 'Em Processamento',
-                                        'enviado'          => 'Enviado',
                                         default            => ucfirst($s),
                                     } ?>
                                 </option>
@@ -152,31 +139,12 @@ layout_head('Pedido #' . $id);
                         </select>
                         <button type="submit" class="btn btn-sm btn-primary text-nowrap">Atualizar</button>
                     </div>
-                    <div id="rastreioField" style="display:<?= $pedido['status'] === 'enviado' ? 'block' : 'none' ?>;">
-                        <label class="form-label small fw-semibold mb-1">
-                            <i class="fas fa-truck me-1 text-primary"></i>Código de Rastreio (Correios)
-                        </label>
-                        <input type="text" name="codigo_rastreio" class="form-control form-control-sm font-monospace text-uppercase"
-                               placeholder="Ex: AA123456789BR"
-                               value="<?= htmlspecialchars($pedido['codigo_rastreio'] ?? '') ?>"
-                               maxlength="13" oninput="this.value=this.value.toUpperCase()">
-                        <?php if (empty($pedido['codigo_rastreio'])): ?>
-                        <div class="form-text text-warning small">
-                            <i class="fas fa-info-circle me-1"></i>Ao salvar com código pela primeira vez, um e-mail será enviado automaticamente ao comprador.
-                        </div>
-                        <?php else: ?>
-                        <div class="form-text text-muted small">
-                            Código já enviado ao comprador. Alterar não reenvia e-mail.
-                        </div>
-                        <?php endif; ?>
+                    <div class="form-text text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Código de rastreio e envio gerenciados em
+                        <a href="tracking-admin.php" class="text-decoration-none">Rastreamento</a>.
                     </div>
                 </form>
-                <script>
-                function toggleRastreio() {
-                    const s = document.getElementById('statusSelect').value;
-                    document.getElementById('rastreioField').style.display = s === 'enviado' ? 'block' : 'none';
-                }
-                </script>
             </div>
         </div>
     </div>

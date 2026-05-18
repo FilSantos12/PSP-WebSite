@@ -78,10 +78,10 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO pedidos (nome_comprador, email_comprador, telefone_comprador,
                              cep, endereco, numero, complemento, bairro, cidade, estado,
-                             total, status, token_acompanhamento)
+                             total, status, token_acompanhamento, criado_em)
         VALUES (:nome, :email, :telefone,
                 :cep, :endereco, :numero, :complemento, :bairro, :cidade, :estado,
-                :total, 'pendente', :token)
+                :total, 'pendente', :token, :criado_em)
     ");
     $stmt->execute([
         ':nome'        => $nome,
@@ -96,6 +96,7 @@ try {
         ':estado'      => $estado,
         ':total'       => $total,
         ':token'       => $token,
+        ':criado_em'   => date('Y-m-d H:i:s'),
     ]);
     $pedidoId = (int) $pdo->lastInsertId();
 

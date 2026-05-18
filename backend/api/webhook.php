@@ -87,6 +87,12 @@ try {
 
     // Envia e-mail de pagamento aprovado apenas na primeira transição
     if ($novoStatus === 'aprovado' && $statusAnterior !== 'aprovado') {
+        // Auto-cria registro de rastreamento em "Em Preparação"
+        $pdo->prepare("
+            INSERT OR IGNORE INTO order_tracking (order_id, status, updated_at)
+            VALUES (:oid, 0, :now)
+        ")->execute([':oid' => (string) $pedidoId, ':now' => date('Y-m-d H:i:s')]);
+
         $stmtP = $pdo->prepare("SELECT * FROM pedidos WHERE id = :id");
         $stmtP->execute([':id' => $pedidoId]);
         $pedido = $stmtP->fetch(PDO::FETCH_ASSOC);
