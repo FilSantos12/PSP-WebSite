@@ -270,6 +270,65 @@ function emailPedidoEnviado(array $pedido, array $itens, string $token, string $
 }
 
 /**
+ * E-mail interno: Ficha de Separação (para estoque/separação — não vai ao comprador)
+ */
+function emailFichaSeparacao(array $pedido, array $itens): bool {
+    $destinatario = defined('EMAIL_SEPARACAO_INTERNA') ? EMAIL_SEPARACAO_INTERNA : 'filipe@pentasis.com.br';
+    $pedidoId     = $pedido['id'];
+    $data         = date('d/m/Y H:i', strtotime($pedido['criado_em']));
+    $status       = _statusLabel($pedido['status'] ?? 'pendente');
+    $nome         = htmlspecialchars($pedido['nome_comprador']);
+    $cidadeUf     = htmlspecialchars(($pedido['cidade'] ?? '') . ($pedido['estado'] ? '/' . $pedido['estado'] : ''));
+
+    $linhasItens = '';
+    foreach ($itens as $item) {
+        $codigo    = htmlspecialchars($item['codigo_interno'] ?: '—');
+        $nomeProd  = htmlspecialchars($item['produto_nome']);
+        $qtd       = (int) $item['quantidade'];
+        $linhasItens .= <<<HTML
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace;font-size:12px;color:#444;">{$codigo}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{$nomeProd}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;font-size:15px;">{$qtd}</td>
+        </tr>
+        HTML;
+    }
+
+    $conteudo = <<<HTML
+    <p><strong>Ficha de Separação interna — não encaminhar ao cliente.</strong></p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0;font-size:12px;">
+      <tr>
+        <td style="padding:10px;background:#f4f6fb;border-radius:8px;">
+          <strong>Pedido:</strong> #{$pedidoId} &nbsp;&nbsp;
+          <strong>Data:</strong> {$data} &nbsp;&nbsp;
+          <strong>Status:</strong> {$status}
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;font-size:13px;">
+      <tr style="background:#274185;">
+        <th style="padding:10px;text-align:left;color:#fff;">Código Interno</th>
+        <th style="padding:10px;text-align:left;color:#fff;">Produto</th>
+        <th style="padding:10px;text-align:center;color:#fff;">Qtd</th>
+      </tr>
+      {$linhasItens}
+    </table>
+
+    <p style="font-size:13px;color:#555;margin:4px 0;">
+      <strong>Comprador:</strong> {$nome} &nbsp;|&nbsp; <strong>Cidade/UF:</strong> {$cidadeUf}
+    </p>
+    HTML;
+
+    return _enviarEmail(
+        $destinatario,
+        "Ficha de Separação — Pedido #{$pedidoId}",
+        _layoutEmail("Ficha de Separação — Pedido #{$pedidoId}", $conteudo)
+    );
+}
+
+/**
  * E-mail 2: Pagamento aprovado (disparado pelo webhook)
  */
 function emailPagamentoAprovado(array $pedido, array $itens, string $token): void {

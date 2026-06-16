@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/_layout.php';
+require_once __DIR__ . '/../helpers/email.php';
 
 $pdo = getDB();
 $id  = (int) ($_GET['id'] ?? 0);
@@ -17,7 +18,7 @@ if (!$pedido) {
 
 $itens = $pdo->prepare("
     SELECT ip.quantidade, ip.preco_unitario,
-           pr.nome AS produto_nome, pr.imagem
+           pr.nome AS produto_nome, pr.imagem, pr.codigo_interno
     FROM itens_pedido ip
     JOIN produtos pr ON pr.id = ip.produto_id
     WHERE ip.pedido_id = :id
@@ -25,8 +26,24 @@ $itens = $pdo->prepare("
 $itens->execute([':id' => $id]);
 $itens = $itens->fetchAll(PDO::FETCH_ASSOC);
 
-$statusValidos = ['pendente','aprovado','em_analise','recusado','cancelado','reembolsado','contestado','em_processamento'];
+$statusValidos   = ['pendente','aprovado','em_analise','recusado','cancelado','reembolsado','contestado','em_processamento'];
 $mensagemSucesso = '';
+$mensagemFicha   = '';
+$tipoFicha       = '';
+
+// Envio da Ficha de Separação por e-mail
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'enviar_ficha') {
+    $host    = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+    $isLocal = str_contains($host, 'localhost') || str_contains($host, '127.0.0.1');
+    emailFichaSeparacao($pedido, $itens);
+    if ($isLocal) {
+        $mensagemFicha = 'Em ambiente local o e-mail não é enviado — registrado no log.';
+        $tipoFicha     = 'warning';
+    } else {
+        $mensagemFicha = 'Ficha de separação enviada com sucesso para o setor interno.';
+        $tipoFicha     = 'success';
+    }
+}
 
 // Atualização de status manual
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['status'])) {
@@ -68,6 +85,13 @@ layout_head('Pedido #' . $id);
 <?php if ($mensagemSucesso): ?>
 <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
     <i class="fas fa-check-circle me-2"></i><?= htmlspecialchars($mensagemSucesso) ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if ($mensagemFicha): ?>
+<div class="alert alert-<?= $tipoFicha ?> alert-dismissible fade show mb-3" role="alert">
+    <i class="fas fa-<?= $tipoFicha === 'success' ? 'check-circle' : 'exclamation-triangle' ?> me-2"></i><?= htmlspecialchars($mensagemFicha) ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
@@ -145,6 +169,19 @@ layout_head('Pedido #' . $id);
                         <a href="tracking-admin.php" class="text-decoration-none">Rastreamento</a>.
                     </div>
                 </form>
+
+                <hr class="my-3">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="pedido-ficha.php?id=<?= $id ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-print me-1"></i> Imprimir Ficha
+                    </a>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="enviar_ficha">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-envelope me-1"></i> Enviar Ficha por E-mail
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -172,7 +209,12 @@ layout_head('Pedido #' . $id);
                                         <img src="/<?= htmlspecialchars($item['imagem']) ?>" width="40" height="40"
                                              style="object-fit:cover;border-radius:6px;">
                                     <?php endif; ?>
-                                    <?= htmlspecialchars($item['produto_nome']) ?>
+                                    <div>
+                                        <?= htmlspecialchars($item['produto_nome']) ?>
+                                        <div class="small text-muted" style="font-family:monospace;font-size:.75rem;">
+                                            <?= !empty($item['codigo_interno']) ? htmlspecialchars($item['codigo_interno']) : '—' ?>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             <td>R$ <?= number_format($item['preco_unitario'], 2, ',', '.') ?></td>

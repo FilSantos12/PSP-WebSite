@@ -17,6 +17,24 @@ $rows = $pdo->query("
     ORDER BY ot.updated_at DESC
 ")->fetchAll();
 
+// Busca itens de todos os pedidos listados para exibir no modal
+$itensMap = [];
+if (!empty($rows)) {
+    $orderIds    = array_map('intval', array_column($rows, 'order_id'));
+    $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+    $stmtItens   = $pdo->prepare("
+        SELECT ip.pedido_id, ip.quantidade, pr.nome AS produto_nome, pr.codigo_interno
+        FROM itens_pedido ip
+        JOIN produtos pr ON pr.id = ip.produto_id
+        WHERE ip.pedido_id IN ($placeholders)
+        ORDER BY ip.pedido_id, ip.id
+    ");
+    $stmtItens->execute($orderIds);
+    foreach ($stmtItens->fetchAll(PDO::FETCH_ASSOC) as $item) {
+        $itensMap[(string) $item['pedido_id']][] = $item;
+    }
+}
+
 layout_head('Rastreamento de Pedidos');
 ?>
 
@@ -73,6 +91,7 @@ layout_head('Rastreamento de Pedidos');
                                 "tracking_code" => $r["tracking_code"] ?? "",
                                 "carrier"       => $r["carrier"] ?? "",
                                 "notes"         => $r["notes"] ?? "",
+                                "itens"         => $itensMap[$r["order_id"]] ?? [],
                             ]) ?>)'>
                         <i class="fas fa-edit"></i>
                     </button>
@@ -99,6 +118,10 @@ layout_head('Rastreamento de Pedidos');
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Pedido #</label>
                     <input type="text" id="mOrderId" class="form-control" placeholder="Ex: 42">
+                </div>
+                <div class="mb-3" id="mItensContainer">
+                    <label class="form-label fw-semibold text-muted small">Itens do Pedido</label>
+                    <div id="mItens" class="border rounded p-2 bg-light small" style="max-height:140px;overflow-y:auto;"></div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Status</label>
@@ -157,6 +180,9 @@ function abrirModal(data) {
     alert.className = 'alert d-none mb-3';
     alert.textContent = '';
 
+    const itensEl        = document.getElementById('mItens');
+    const itensContainer = document.getElementById('mItensContainer');
+
     if (data) {
         isEditing         = true;
         title.textContent = 'Editar Rastreamento — Pedido #' + data.order_id;
@@ -166,6 +192,20 @@ function abrirModal(data) {
         document.getElementById('mCode').value    = data.tracking_code || '';
         document.getElementById('mCarrier').value = data.carrier || '';
         document.getElementById('mNotes').value   = data.notes || '';
+
+        if (data.itens && data.itens.length) {
+            itensEl.innerHTML = data.itens.map(item => {
+                const cod  = item.codigo_interno || '—';
+                const nome = item.produto_nome.replace(/</g, '&lt;');
+                return `<div class="d-flex justify-content-between py-1 border-bottom">
+                    <span><code class="text-muted">${cod}</code>&nbsp;${nome}</span>
+                    <span class="fw-bold ms-2">×${item.quantidade}</span>
+                </div>`;
+            }).join('');
+            itensContainer.style.display = '';
+        } else {
+            itensContainer.style.display = 'none';
+        }
     } else {
         isEditing         = false;
         title.textContent = 'Novo Registro de Rastreamento';
@@ -175,6 +215,8 @@ function abrirModal(data) {
         document.getElementById('mCode').value    = '';
         document.getElementById('mCarrier').value = '';
         document.getElementById('mNotes').value   = '';
+        itensContainer.style.display = 'none';
+        itensEl.innerHTML            = '';
     }
 
     if (!modalBS) modalBS = new bootstrap.Modal(document.getElementById('trackingModal'));

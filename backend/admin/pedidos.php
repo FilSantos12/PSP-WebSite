@@ -5,12 +5,28 @@ require_once __DIR__ . '/_layout.php';
 
 $pdo    = getDB();
 $filtro = $_GET['status'] ?? '';
+$busca  = trim($_GET['busca'] ?? '');
+
+$where  = [];
+$params = [];
+
+if ($filtro) {
+    $where[]  = "status = ?";
+    $params[] = $filtro;
+}
+if ($busca) {
+    $where[]  = "(nome_comprador LIKE ? OR email_comprador LIKE ?)";
+    $params[] = "%$busca%";
+    $params[] = "%$busca%";
+}
 
 $sql = "SELECT * FROM pedidos";
-if ($filtro) $sql .= " WHERE status = " . $pdo->quote($filtro);
+if ($where) $sql .= " WHERE " . implode(" AND ", $where);
 $sql .= " ORDER BY id DESC";
 
-$pedidos = $pdo->query($sql)->fetchAll();
+$stmt    = $pdo->prepare($sql);
+$stmt->execute($params);
+$pedidos = $stmt->fetchAll();
 
 $statusBadge = [
     'aprovado'         => 'success',
@@ -25,6 +41,17 @@ $statusBadge = [
 ];
 
 $statusOpcoes = ['', 'aprovado', 'pendente', 'em_analise', 'em_processamento', 'enviado', 'recusado', 'cancelado'];
+$statusLabel  = [
+    'aprovado'         => 'Aprovado',
+    'pendente'         => 'Pendente',
+    'em_analise'       => 'Em Análise',
+    'recusado'         => 'Recusado',
+    'cancelado'        => 'Cancelado',
+    'reembolsado'      => 'Reembolsado',
+    'contestado'       => 'Contestado',
+    'em_processamento' => 'Em Processamento',
+    'enviado'          => 'Enviado',
+];
 
 layout_head('Pedidos');
 ?>
@@ -34,14 +61,21 @@ layout_head('Pedidos');
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <span class="text-muted small"><?= count($pedidos) ?> pedido(s)</span>
-    <form method="GET" class="d-flex gap-2">
-        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+    <form method="GET" class="d-flex gap-2 flex-wrap align-items-center">
+        <input type="text" name="busca" class="form-control form-control-sm"
+               placeholder="Buscar nome ou e-mail"
+               value="<?= htmlspecialchars($busca) ?>"
+               style="min-width:200px;">
+        <select name="status" class="form-select form-select-sm" style="min-width:160px;">
             <option value="">Todos os status</option>
             <?php foreach (array_filter($statusOpcoes) as $s): ?>
-                <option value="<?= $s ?>" <?= $filtro === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
+                <option value="<?= $s ?>" <?= $filtro === $s ? 'selected' : '' ?>><?= $statusLabel[$s] ?? ucfirst($s) ?></option>
             <?php endforeach; ?>
         </select>
-        <?php if ($filtro): ?>
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fas fa-search me-1"></i> Buscar
+        </button>
+        <?php if ($filtro || $busca): ?>
             <a href="pedidos.php" class="btn btn-sm btn-outline-secondary">Limpar</a>
         <?php endif; ?>
     </form>
@@ -68,9 +102,9 @@ layout_head('Pedidos');
                     <td class="fw-semibold"><?= htmlspecialchars($p['nome_comprador']) ?></td>
                     <td class="text-muted small"><?= htmlspecialchars($p['email_comprador']) ?></td>
                     <td>R$ <?= number_format($p['total'], 2, ',', '.') ?></td>
-                    <td><span class="badge bg-<?= $statusBadge[$p['status']] ?? 'secondary' ?>"><?= $p['status'] ?></span></td>
+                    <td><span class="badge bg-<?= $statusBadge[$p['status']] ?? 'secondary' ?>"><?= $statusLabel[$p['status']] ?? $p['status'] ?></span></td>
                     <td class="text-muted small"><?= date('d/m/Y H:i', strtotime($p['criado_em'])) ?></td>
-                    <td><a href="pedido-detalhe.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline-secondary">Ver</a></td>
+                    <td><a href="pedido-detalhe.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye me-1"></i> Ver detalhe</a></td>
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($pedidos)): ?>

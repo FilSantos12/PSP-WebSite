@@ -61,6 +61,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - `emailPedidoCriado($pedido, $itens, $token)` — disparado em `pedidos.php` ao criar o pedido; inclui botão "Acompanhar Pedido" com link `{MP_BASE_URL}/acompanhar.html?pedido={id}&token={token}`
 - `emailPagamentoAprovado($pedido, $itens, $token)` — disparado em `webhook.php` e `processar-pagamento.php` na primeira transição para `aprovado`; inclui mesmo link de acompanhamento
 - `emailPedidoEnviado()` — existe no código mas não é mais chamado (status 'enviado' removido do fluxo)
+- `emailFichaSeparacao($pedido, $itens): bool` — e-mail **interno** disparado pelo admin em `pedido-detalhe.php`; monta tabela Código Interno | Produto | Quantidade para o setor de separação/estoque; destinatário via constante `EMAIL_SEPARACAO_INTERNA` (fallback: `filipe@pentasis.com.br`) — **nunca** enviado ao comprador
 - Envio via `mail()` nativo do PHP — **não funciona em localhost** (DEV-SKIP no log), funciona em hospedagem compartilhada
 - Logs de envio em `logs/emails.log`
 - `MP_BASE_URL` (de `mercadopago.php`) é usado como base dos links nos e-mails
@@ -282,11 +283,21 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 9 | Checkout Bricks (pagamento inline) + modal pós-pagamento + simplificação de acompanhamento | ✅ Concluído |
 | Fase 10 | Rastreamento de entrega (order_tracking) + timeline unificada + correção de timezone | ✅ Concluído |
 
+## Módulo Dashboard (`backend/admin/dashboard.php`)
+
+- **Filtro por período** via GET: padrão = mês atual; `?mes=YYYY-MM` (mês), `?de=YYYY-MM-DD&ate=YYYY-MM-DD` (intervalo — sobrepõe o mês), `?tudo` (sem recorte). Datas inválidas caem no mês atual sem erro.
+- **6 métricas** server-side sobre o período filtrado: Total de Pedidos, Receita Aprovada, Ticket Médio, Pedidos Pendentes, Pedidos Aprovados, Recusados/Cancelados
+- **Seleção de métricas**: botão "Métricas" (`fa-sliders`) abre dropdown com checkboxes; toggle via `wrap.style.display` (sem `display:none` no stylesheet); preferência em `localStorage('psp_dashboard_cards')`; IDs dos wrappers: `cw-{nome}` (ex: `cw-receita`, `cw-ticket-medio`)
+- **Tabela de pedidos do período**: LIMIT 20, badges e labels em português, estado vazio com mensagem amigável
+- **Estoque baixo**: seção independente, não filtrada por período
+- Helper PHP `periodoWhere(?string $inicio, ?string $fim, string $extra = ''): array` — retorna `[$whereSql, $params]` para compor queries com prepared statements
+
 ## Módulo Admin de Pedidos
 
-- `backend/admin/pedidos.php` — listagem com filtro de status, busca por nome/e-mail
-- `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens e status; permite atualizar apenas o status do pedido; **não gerencia rastreamento** (link para `tracking-admin.php`)
-- `backend/admin/tracking-admin.php` — única interface para atualizar `order_tracking` (status de envio, código de rastreio, transportadora, notas)
+- `backend/admin/pedidos.php` — listagem com filtro de status e busca por nome/e-mail; prepared statements; badges e labels de status em português
+- `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens (com `codigo_interno`, fallback `—`) e status; botões "Imprimir Ficha" (abre `pedido-ficha.php` em nova aba) e "Enviar Ficha por E-mail" (POST `action=enviar_ficha`); não gerencia rastreamento (link para `tracking-admin.php`)
+- `backend/admin/pedido-ficha.php` — ficha de separação para impressão; acesso via `?id={pedido_id}`; tabela Código Interno | Produto | Quantidade | ✓ Sep.; `@media print` oculta chrome do admin; `window.print()` dispara no load
+- `backend/admin/tracking-admin.php` — única interface para `order_tracking`; modal exibe itens do pedido com `codigo_interno` para conferência no momento do envio
 
 ## Timezone
 
