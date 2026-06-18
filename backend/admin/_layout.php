@@ -88,6 +88,11 @@ function layout_head(string $titulo, string $extra_head = ''): void {
         <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'tracking-admin.php' ? 'active' : '' ?>" href="<?= $base ?>tracking-admin.php">
             <i class="fas fa-truck fa-fw"></i> Rastreamento
         </a>
+
+        <div class="nav-section">Configurações</div>
+        <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'melhorenvio.php' ? 'active' : '' ?>" href="<?= $base ?>melhorenvio.php">
+            <i class="fas fa-plug fa-fw"></i> Integrações
+        </a>
     </nav>
     <div class="sidebar-footer">
         <div class="text-truncate mb-1" style="color:#fff;"><?= htmlspecialchars($_SESSION['admin_nome'] ?? '') ?></div>

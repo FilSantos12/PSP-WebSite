@@ -151,6 +151,10 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | codigo_interno | TEXT | formato `SE.02.00002` — único, opcional |
 | datasheet | TEXT | caminho relativo ex: `docs/ds_1_xxx.pdf` |
 | especificacao_tecnica | TEXT | conteúdo em Markdown |
+| peso | REAL | kg — padrão 0.5; usado no cálculo de frete |
+| largura | REAL | cm — padrão 15 |
+| altura | REAL | cm — padrão 10 |
+| comprimento | REAL | cm — padrão 20 |
 | criado_em | TEXT | |
 
 ### Tabela `produto_imagens`
@@ -191,6 +195,26 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - Criada automaticamente via `INSERT OR IGNORE` com `status = 0` quando o pagamento é aprovado (em `webhook.php` e `processar-pagamento.php`)
 - Gerenciada exclusivamente em `backend/admin/tracking-admin.php`
 - API pública: `GET /backend/api/tracking.php?order_id=X`
+
+### Tabela `melhorenvio_auth`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| id | INTEGER PK | CHECK (id = 1) — sempre 1 linha (lojista único) |
+| access_token | TEXT | Token OAuth2 ativo |
+| refresh_token | TEXT | Para renovação automática |
+| expires_at | DATETIME | `date('Y-m-d H:i:s', time() + expires_in)` |
+| requer_reautorizacao | INTEGER | 1 quando o refresh falha — sinaliza admin |
+| updated_at | DATETIME | Atualizado a cada refresh |
+
+- Criada por `migrate_melhorenvio_auth.php` (executar uma vez e apagar)
+- Gerenciada exclusivamente via `MelhorEnvio::_salvarTokenNoBanco()` e `_marcarRequerReautorizacao()`
+
+### Tabela `cache_cotacoes`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| cache_key | TEXT PK | `md5("v1:{produto_id}:{cep}")` |
+| payload | TEXT | JSON da resposta normalizada (`{ok, cep, servicos[]}`) |
+| criado_em | TEXT | Timestamp; TTL de 12 horas verificado em runtime |
 
 ### Tabela `itens_pedido`
 - id, pedido_id (CASCADE), produto_id (RESTRICT), quantidade, preco_unitario
@@ -282,6 +306,77 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 8 | Gestão de categorias + filtros dinâmicos + retorno MP pós-pagamento | ✅ Concluído |
 | Fase 9 | Checkout Bricks (pagamento inline) + modal pós-pagamento + simplificação de acompanhamento | ✅ Concluído |
 | Fase 10 | Rastreamento de entrega (order_tracking) + timeline unificada + correção de timezone | ✅ Concluído |
+| Fase 11 | Prazo de entrega via API Melhor Envio — proxy PHP + cache + frontend nos modais de produto e checkout | ✅ Concluído |
+| Fase 12 | Transportadora escolhida pelo cliente — captura no checkout, persistência em order_tracking, exibição no painel admin | ✅ Concluído |
+| Fase 13 | Autenticação OAuth2 com Melhor Envio — fluxo authorization_code, token no banco, refresh automático, painel de integração | ✅ Concluído |
+
+## Módulo Frete — Melhor Envio (Fase 11)
+
+### Arquivos
+| Arquivo | Função |
+|---|---|
+| `backend/config/melhorenvio.php` | Constantes de credenciais e CEP de origem — **gitignored**, nunca commitar |
+| `backend/helpers/MelhorEnvio.php` | Classe que encapsula chamadas à API, OAuth2 e refresh automático |
+| `backend/api/frete.php` | `POST /backend/api/frete.php` — proxy público; recebe `produto_id` + `cep_destino` |
+| `backend/admin/melhorenvio.php` | Painel de status da integração (badge + tabela de config + instruções) |
+| `backend/admin/melhorenvio-conectar.php` | Inicia o fluxo OAuth2 — gera state CSRF e redireciona para `/oauth/authorize` |
+| `backend/admin/melhorenvio-callback.php` | Recebe o `code`, troca por token, persiste na tabela `melhorenvio_auth` |
+| `migrate_melhorenvio_auth.php` | Cria a tabela `melhorenvio_auth` — executar uma vez e apagar |
+
+### Fluxo do cálculo
+1. Frontend envia `{ produto_id, cep_destino }` — nunca o token
+2. `frete.php` checa `MelhorEnvio::getStatus()`; se não estiver `ok`/`expira_em_breve`, retorna HTTP 503 sem chamar a API
+3. Valida CEP (8 dígitos) e busca produto no banco (com `peso`, `largura`, `altura`, `comprimento`)
+4. Consulta `cache_cotacoes`; se hit válido (< 12h), retorna sem chamar a API
+5. `MelhorEnvio::calcularFrete()` chama `POST /api/v2/me/shipment/calculate` com headers obrigatórios
+6. Em 401, renova token via `POST /oauth/token` com `refresh_token`, persiste no banco e repete uma vez
+7. Serviços com campo `error` são filtrados; resultado ordenado por preço (empate → menor prazo)
+8. Resposta normalizada gravada no cache e retornada:
+```json
+{ "ok": true, "cep": "01310-100", "servicos": [
+  { "id": 1, "nome": "PAC", "transportadora": "Correios",
+    "logo": "https://...", "preco": 23.90, "prazo_min": 5, "prazo_max": 8 }
+], "cache": false }
+```
+
+### Campos de configuração (`backend/config/melhorenvio.php`)
+- `MELHORENVIO_BASE_URL` — `https://sandbox.melhorenvio.com.br` (dev) / `https://www.melhorenvio.com.br` (prod)
+- `MELHORENVIO_CLIENT_ID`, `MELHORENVIO_CLIENT_SECRET` — do app no painel Melhor Envio
+- `MELHORENVIO_REDIRECT_URI` — URL de callback OAuth2 (deve ser idêntica à cadastrada no app)
+- `MELHORENVIO_SCOPES` — `'shipping-calculate'` (adicionar outros scopes requer nova autorização)
+- `MELHORENVIO_USER_AGENT` — obrigatório pela API: `"PSPart - Partes e Peças Automação (filipe@pentasis.com.br)"`
+- `LOJA_CEP_ORIGEM` — `'18556322'` (CEP de expedição da loja)
+- `MELHORENVIO_TOKEN`, `MELHORENVIO_REFRESH_TOKEN` — **legado, não utilizados**; token gerenciado via OAuth na tabela `melhorenvio_auth`
+
+### OAuth2 e renovação de token
+- Fluxo `authorization_code`: admin acessa `melhorenvio-conectar.php` → autoriza no painel ME → callback persiste tokens no banco
+- `access_token`: validade 30 dias · `refresh_token`: validade 45 dias
+- **Fonte única:** tabela `melhorenvio_auth` (linha única, `id = 1`) — sem fallback para JSON ou constantes
+- `getValidToken()`: lê do banco; renova proativamente se expira em < 1 dia; lança `RuntimeException('integracao_nao_conectada')` se banco estiver vazio ou `requer_reautorizacao = 1`
+- Em 401 na chamada à API, `_renovarToken()` tenta refresh e persiste novo par com `expires_at`; em falha marca `requer_reautorizacao = 1`
+- `getStatus()` (static): retorna `ok | expira_em_breve | expirado | requer_reautorizacao | nao_configurado | sem_tabela` — usado pelo painel admin e por `frete.php` antes de chamar a API
+- **`me_tokens.json` aposentado** — não existe mais no projeto
+
+### Frontend (script.js — métodos na classe `App`)
+| Método | Função |
+|---|---|
+| `setupFrete()` | Event delegation: máscara CEP, Enter, botão Calcular, pré-fill de CEP salvo |
+| `_calcularFrete(prodId, cep, resultEl, btnEl)` | Fetch + loading state — para modais de produto |
+| `_calcularFreteCheckout(cep)` | Idem para `#frete-resultado-checkout` — disparado após ViaCEP |
+| `_renderFrete(servicos, cep, containerEl)` | Monta HTML com logo, nome, preço e "Chegará entre X e Y" |
+| `_calcularEaster(year)` | Algoritmo gregoriano anônimo para data da Páscoa |
+| `_feriadosBR(year)` | Feriados nacionais fixos + Sexta-Feira Santa + Corpus Christi |
+| `_adicionarDiasUteis(dataInicio, dias)` | Dias úteis → data real, pulando fins de semana e feriados BR |
+
+- CEP digitado em modal de produto salvo em `sessionStorage('psp_frete_cep')` e pré-preenchido ao abrir outros modais
+- Checkout: `#frete-resultado-checkout` aparece automaticamente após ViaCEP preencher o endereço; limpo ao reabrir o modal
+- Componente `.frete-calc` gerado dinamicamente em `renderProducts()` no `col-md-6` de cada modal de produto
+- Dark mode coberto em `style.css` nas classes `.frete-*`
+
+### Admin — campos de dimensão
+- `produto-novo.php` e `produto-editar.php` exibem bloco "Dimensões para frete" (peso kg, largura/altura/comprimento cm)
+- Validação: todos devem ser numéricos e > 0
+- Produtos existentes receberam defaults via `ALTER TABLE` (0.5 kg, 15×10×20 cm)
 
 ## Módulo Dashboard (`backend/admin/dashboard.php`)
 
@@ -294,10 +389,46 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 
 ## Módulo Admin de Pedidos
 
-- `backend/admin/pedidos.php` — listagem com filtro de status e busca por nome/e-mail; prepared statements; badges e labels de status em português
-- `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens (com `codigo_interno`, fallback `—`) e status; botões "Imprimir Ficha" (abre `pedido-ficha.php` em nova aba) e "Enviar Ficha por E-mail" (POST `action=enviar_ficha`); não gerencia rastreamento (link para `tracking-admin.php`)
+- `backend/admin/pedidos.php` — listagem com filtro de status, busca por nome/e-mail e coluna "Envio" com badge `Transportadora · Serviço` + ícone de relógio quando rastreio ainda não foi inserido; JOIN com `order_tracking` via `CAST(p.id AS TEXT)`
+- `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens (com `codigo_interno`, fallback `—`), status e card "Entrega" (bloco escolha do cliente + bloco rastreamento atual); botões "Imprimir Ficha" e "Enviar Ficha por E-mail"; link para `tracking-admin.php`
 - `backend/admin/pedido-ficha.php` — ficha de separação para impressão; acesso via `?id={pedido_id}`; tabela Código Interno | Produto | Quantidade | ✓ Sep.; `@media print` oculta chrome do admin; `window.print()` dispara no load
-- `backend/admin/tracking-admin.php` — única interface para `order_tracking`; modal exibe itens do pedido com `codigo_interno` para conferência no momento do envio
+- `backend/admin/tracking-admin.php` — única interface para `order_tracking`; modal exibe bloco informativo da escolha do cliente (read-only) + itens do pedido; campo "Transportadora" pré-preenchido com `chosen_carrier` (editável pelo admin)
+
+## Módulo Transportadora Escolhida pelo Cliente (Fase 12)
+
+### Schema — novas colunas em `order_tracking`
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `chosen_carrier` | TEXT | Transportadora escolhida no checkout (ex.: `Correios`) — imutável |
+| `chosen_service` | TEXT | Serviço escolhido (ex.: `PAC`, `SEDEX`) — imutável |
+| `chosen_service_id` | INTEGER | ID do serviço no Melhor Envio — imutável |
+| `shipping_price` | REAL | Valor do frete pago — imutável |
+| `shipping_deadline` | INTEGER | Prazo em dias úteis (`prazo_max`) — imutável |
+| `destination_cep` | TEXT | CEP de destino (8 dígitos) — imutável |
+
+- A coluna `carrier` existente permanece como **transportadora efetiva do despacho** (editável pelo admin)
+- Migração: `migrate_shipping_choice.php` (idempotente, apagar após uso)
+
+### Fluxo de captura
+1. `_calcularFreteCheckout()` chama `_renderFreteCheckout()` — exibe opções como itens clicáveis com ícone ✓; primeira opção pré-selecionada; seleção gravada em `this._selectedFrete`
+2. `_doCheckoutSubmit()` envia `frete_escolhido` junto ao body de `pedidos.php`
+3. `backend/api/pedidos.php` valida o preço contra `cache_cotacoes` (tolerância R$0,10); se válido, faz `INSERT INTO order_tracking ... ON CONFLICT DO UPDATE` apenas nas colunas `chosen_*` e `carrier` (pré-preenche com `chosen_carrier`)
+4. `webhook.php` e `processar-pagamento.php` continuam usando `INSERT OR IGNORE` — como o registro já existe, o ignore preserva os dados de escolha
+
+### Distinção importante
+- **`chosen_*`** = escolha informativa do cliente, gravada no checkout, nunca sobrescrita
+- **`carrier`** = transportadora confirmada pelo admin no despacho, inicializa com `chosen_carrier` mas pode ser ajustada
+
+### Validação anti-adulteração
+- Backend verifica o serviço escolhido contra o cache de cotações (`cache_cotacoes`) pelo mesmo `produto_id + cep`
+- Aceita diferença de até R$0,10 (arredondamento); sem cache válido, aceita a escolha se os campos obrigatórios (`id`, `transportadora`, `nome`) estiverem presentes
+
+### API `tracking.php` (GET)
+Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `shipping_deadline`, `destination_cep`
+
+### Frontend — `_renderFreteCheckout()` vs `_renderFrete()`
+- `_renderFrete()` — modais de produto, exibição informativa (inalterado)
+- `_renderFreteCheckout()` — modal de checkout, opções clicáveis com seleção visual; classe `.frete-opcao--selec` + `.frete-opcao--ativo`; ícone `.frete-selec-check` visível apenas na opção ativa
 
 ## Timezone
 
@@ -353,6 +484,16 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - **Modal pós-Bricks (`#bricksResultModal`):** exibido após `onSubmit` do Brick resolver; fecha o modal de checkout (desmontando o Brick via `hidden.bs.modal`) e abre o modal de resultado 450ms depois; exibe nome/e-mail do comprador armazenados em `_buyerName`/`_buyerEmail`
 - **Acompanhar.html com busca dupla:** acesso via token na URL (e-mail + modal pós-pagamento) ou via formulário manual (pedido_id + e-mail); sem token na URL o formulário fica visível por padrão (não usa `style="display:none;"` no HTML — o JS esconde apenas quando há token)
 - **Timeline unificada em `acompanhar.html`:** 6 etapas combinam status do pedido (`pedidos.status`) e status de entrega (`order_tracking.status`) em uma única barra de progresso — substituiu a dupla timeline anterior (status badge separado + rastreamento separado)
+- **Frete via Melhor Envio — proxy PHP obrigatório:** token OAuth2 nunca vai ao frontend; `backend/api/frete.php` recebe só `produto_id` + `cep_destino` e devolve resposta normalizada
+- **Token do Melhor Envio em `melhorenvio_auth` (banco):** fonte única após Fase 13; sem fallback para JSON ou constantes; ausência de token resulta em HTTP 503 no endpoint de frete, nunca em chamada à API com token vazio
+- **Cache de cotações em `cache_cotacoes`:** chave `md5("v1:{produto_id}:{cep}")`, TTL de 12h verificado em runtime com `INSERT OR UPDATE`; evita chamadas repetidas e respeita limites da API
+- **Dias úteis → data calendário:** `_adicionarDiasUteis()` pula sábados, domingos, feriados nacionais fixos + Sexta-Feira Santa e Corpus Christi (calculados via algoritmo de Páscoa gregoriano); cobre ano atual e seguinte
+- **CEP salvo em `sessionStorage('psp_frete_cep')`:** pré-preenchido ao abrir modais de produto; não usa `localStorage` (não é dado pessoal, mas CEP não precisa sobreviver ao fechamento do browser)
+- **Frete no checkout calculado automaticamente:** disparado por `_buscarCep()` após ViaCEP com sucesso — sem botão extra para o usuário; `#frete-resultado-checkout` usa `style="display:none;"` inline (padrão do projeto para JS mostrar/esconder)
+- **Escolha de frete no checkout — seleção visual:** `_renderFreteCheckout()` é separado de `_renderFrete()` (modais de produto); opções clicáveis com `.frete-opcao--selec`; primeira opção pré-selecionada automaticamente; seleção gravada em `this._selectedFrete` e enviada como `frete_escolhido` ao criar o pedido
+- **Escolha de frete — persistência antecipada:** `order_tracking` é criado em `pedidos.php` (no checkout, antes do pagamento) e não apenas na aprovação do pagamento; `webhook.php` e `processar-pagamento.php` continuam com `INSERT OR IGNORE` que não sobrescreve o registro já existente
+- **Colunas `chosen_*` imutáveis pelo admin:** o POST de `tracking.php` usa `ON CONFLICT DO UPDATE` apenas em `status`, `tracking_code`, `carrier`, `notes` e `updated_at` — as colunas de escolha do cliente nunca aparecem no SET do upsert admin
+- **Campo `carrier` pré-preenchido:** ao criar o registro de rastreio em `pedidos.php`, `carrier` recebe o valor de `chosen_carrier`; o admin pode alterar em `tracking-admin.php` sem afetar `chosen_carrier`
 
 ## Placeholders pendentes (necessários antes do deploy)
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)
@@ -363,6 +504,8 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - `MP_BASE_URL` atualizado com domínio real (sem ngrok)
 - Senha do admin trocada (padrão: `admin123`)
 - `setup.php` removido ou bloqueado após deploy
+- Credenciais de produção do Melhor Envio em `backend/config/melhorenvio.php` (`MELHORENVIO_BASE_URL`, `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`) e reconectar via Admin → Integrações após trocar as credenciais
+- Dimensões reais dos produtos cadastradas no admin (defaults de 0.5 kg / 15×10×20 cm são placeholders)
 
 ## Acessos do ambiente de desenvolvimento
 
@@ -410,6 +553,8 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 - `docs/` — data sheets PDF enviados pelo admin
 - `config/` — diretório de config gerado em runtime na raiz
 - `backend/config/mercadopago.php` — credenciais sensíveis do MP
+- `backend/config/melhorenvio.php` — credenciais sensíveis do Melhor Envio
+- `backend/config/me_tokens.json` — aposentado (Fase 13); tokens agora em `melhorenvio_auth` no banco
 - `vendor/` — dependências Composer
 - `logs/` — logs do webhook
 
