@@ -38,14 +38,15 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - Standalone — não depende de `index.html`
 - **Acesso via token**: `acompanhar.html?token=abc123` ou `acompanhar.html?pedido=X&token=abc123`
 - **Formulário de busca manual**: quando não há token na URL, exibe form com `pedido_id` + e-mail; ao submeter chama `buscarManual()` que chama `buscar({ pedido_id, email })`
-- **Timeline unificada de 6 etapas** (`#unifiedTimeline`):
+- **Timeline unificada de 6 etapas** (`#unifiedTimeline`) — visível apenas para pedidos em andamento (`aprovado`, `em_processamento`, `pendente`, `em_analise`):
   1. Pedido Recebido — sempre ativo
-  2. Pagamento Confirmado — ativo se status `aprovado/em_processamento` (erro se `recusado/cancelado/reembolsado/contestado`)
+  2. Pagamento Confirmado — ativo se status `aprovado/em_processamento`
   3. Em Preparação — controlado por `order_tracking.status >= 0`
   4. Embalado — `order_tracking.status >= 1`
   5. Enviado — `order_tracking.status >= 2`
   6. Código de Rastreio — `order_tracking.status >= 3` (exibe código e link dos Correios)
-- Exibe: status badge, timeline, itens do pedido, endereço, dados do comprador
+- **Bloco de falha** (`#falhaBlock`) — exibido em vez da timeline para `recusado`, `cancelado`, `reembolsado`, `contestado`; mostra ícone colorido, título e descrição específicos por status; botão "Falar com a loja" (padrão Mercado Livre — sem etapas de entrega para pedidos não aprovados)
+- Exibe: status badge, timeline ou bloco de falha, itens do pedido, endereço, dados do comprador
 - **CSS bug crítico**: nunca esconder seções via stylesheet (`#id { display:none }`) — JS usa `element.style.display = ''` que não sobrescreve regras CSS. Usar `style="display:none;"` inline no HTML para que o JS consiga mostrar/esconder.
 - API: `GET /backend/api/acompanhar.php?token=...` ou `?pedido_id=X&email=Y`
 
@@ -81,7 +82,8 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - `_validateCheckoutForm()` — valida campos obrigatórios com `is-invalid`, foca no primeiro inválido
 - `_doCheckoutSubmit(mode)` — fluxo unificado: valida, grava pedido, cria preference; bifurca por `mode`: `'redirect'` abre `paymentRedirectModal` e redireciona; `'bricks'` esconde form/footer e renderiza o Brick
 - `_renderBrick(preferenceId, email, amount)` — busca Public Key em `public-config.php`, inicializa `MercadoPago` SDK com locale pt-BR e tema dark/light; cria Payment Brick no `#bricks-container`; no `onSubmit` chama `processar-pagamento.php` e exibe `_showBricksResult()`
-- `_showBricksResult(result)` — fecha o modal de checkout e abre `#bricksResultModal` com ícone, mensagem personalizada (nome + e-mail do comprador) e botão "Acompanhar pedido" (apenas para `approved`)
+- `_showBricksResult(result)` — fecha o modal de checkout e abre `#bricksResultModal` com três estados: `approved` (✅ ícone verde, botão "Acompanhar pedido"), `rejected` (❌ ícone vermelho, mensagem traduzida via `_traduzirStatusDetail()`), outros (⏳ ícone amarelo, "em análise")
+- `_traduzirStatusDetail(detail)` — converte `status_detail` do MP (`cc_rejected_insufficient_amount` etc.) em mensagem legível em PT-BR para o modal de recusa
 - `_unmountBrick()` — desmonta instância do Brick, reseta estado (`_bricksInstance`, `_currentPedidoId`, `_currentToken`, `_currentInitPoint`), restaura visibilidade do form e footer
 - `_openCheckoutModal()` — chama `_unmountBrick()` antes de abrir para garantir estado limpo
 - `_buscarCep()` — consulta ViaCEP e preenche campos de endereço automaticamente
@@ -106,7 +108,8 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 - `onSubmit` do Brick chama `processar-pagamento.php` → MP Payments API
 - Resultado exibido em `#bricksResultModal` com nome e e-mail do comprador:
   - `approved` → ✅ "Pagamento aprovado!" + botão "Acompanhar pedido"
-  - `pending` → ⏳ "Pagamento em análise" + instrução de aguardar e-mail
+  - `rejected` → ❌ "Pagamento não aprovado" + mensagem baseada no `status_detail` (ex: saldo insuficiente, CVV inválido)
+  - `pending`/`in_process` → ⏳ "Pagamento em análise" + instrução de aguardar e-mail
 - Link "Pagar pelo site do MP" dentro do Brick permite trocar para Opção A sem reiniciar
 
 ## Lightbox de imagem
@@ -395,7 +398,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 - `backend/admin/pedidos.php` — listagem com filtro de status, busca por nome/e-mail e coluna "Envio" com badge `Transportadora · Serviço` + ícone de relógio quando rastreio ainda não foi inserido; JOIN com `order_tracking` via `CAST(p.id AS TEXT)`
 - `backend/admin/pedido-detalhe.php` — exibe dados do comprador, itens (com `codigo_interno`, fallback `—`), status e card "Entrega" (bloco escolha do cliente + bloco rastreamento atual); botões "Imprimir Ficha" e "Enviar Ficha por E-mail"; link para `tracking-admin.php`
 - `backend/admin/pedido-ficha.php` — ficha de separação para impressão; acesso via `?id={pedido_id}`; tabela Código Interno | Produto | Quantidade | ✓ Sep.; `@media print` oculta chrome do admin; `window.print()` dispara no load
-- `backend/admin/tracking-admin.php` — única interface para `order_tracking`; modal exibe bloco informativo da escolha do cliente (read-only) + itens do pedido; campo "Transportadora" pré-preenchido com `chosen_carrier` (editável pelo admin)
+- `backend/admin/tracking-admin.php` — única interface para `order_tracking`; inclui `p.status AS pedido_status` no JOIN; pedidos com `pedido_status` em `recusado/cancelado/reembolsado/contestado` exibem badge vermelho "Recusado/Cancelado" (não o status de envio) e linha destacada com `table-danger`; modal exibe bloco informativo da escolha do cliente (read-only) + itens do pedido; campo "Transportadora" pré-preenchido com `chosen_carrier` (editável pelo admin)
 
 ## Módulo Transportadora Escolhida pelo Cliente (Fase 12)
 
@@ -510,7 +513,7 @@ Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `s
 - `meTracking()` só promove `order_tracking.status = 3` se `statusPermiteRastreamento($pedidoStatus) === true` — nunca sobrescreve pedido cancelado/recusado
 - Campo `document` (CPF/CNPJ do comprador) omitido no `to` quando ausente (aceito no sandbox); comentário no código indica ALTER TABLE pontual para produção
 - Token: sempre via `MelhorEnvio::request()` (novo método público) com retry automático em 401
-- Scopes requeridos: `shipping-calculate cart-read cart-write shipping-checkout shipping-generate shipping-print shipping-tracking`
+- Scopes válidos (aceitos pelo OAuth ME sandbox): `shipping-calculate shipping-checkout shipping-generate shipping-print shipping-tracking` — `shipping-cart` é um nome inválido na API ME; operações de carrinho requerem habilitação adicional do app junto ao suporte ME
 - Log em `logs/melhorenvio-etiqueta.log`
 
 ## Helper de Status (`backend/helpers/status.php`)
