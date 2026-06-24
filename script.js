@@ -605,6 +605,12 @@ class App {
             msgEl.innerHTML     = `Obrigado${firstName ? ', <strong>' + firstName + '</strong>' : ''}! Seu pedido foi confirmado.<br>Enviamos os detalhes para <strong>${email}</strong>.`;
             trackBtn.href       = `acompanhar.html?pedido=${result.pedido_id}&token=${result.token}`;
             trackBtn.classList.remove('d-none');
+        } else if (result.status === 'rejected') {
+            const detalhe = this._traduzirStatusDetail(result.status_detail);
+            iconEl.innerHTML    = '<i class="fas fa-circle-xmark text-danger" style="font-size:3rem;"></i>';
+            titleEl.textContent = 'Pagamento não aprovado';
+            msgEl.innerHTML     = `${firstName ? '<strong>' + firstName + '</strong>, seu' : 'Seu'} pagamento foi recusado.<br><span class="text-muted small">${detalhe}</span>`;
+            trackBtn.classList.add('d-none');
         } else {
             iconEl.innerHTML    = '<i class="fas fa-clock text-warning" style="font-size:3rem;"></i>';
             titleEl.textContent = 'Pagamento em análise';
@@ -616,6 +622,25 @@ class App {
         setTimeout(() => {
             new bootstrap.Modal(document.getElementById('bricksResultModal')).show();
         }, 450);
+    }
+
+    _traduzirStatusDetail(detail) {
+        const map = {
+            cc_rejected_bad_filled_card_number: 'Número do cartão inválido. Verifique e tente novamente.',
+            cc_rejected_bad_filled_date:        'Data de validade inválida. Verifique e tente novamente.',
+            cc_rejected_bad_filled_other:       'Dado do cartão inválido. Verifique as informações.',
+            cc_rejected_bad_filled_security_code:'Código de segurança (CVV) inválido.',
+            cc_rejected_blacklist:              'Cartão bloqueado. Entre em contato com seu banco.',
+            cc_rejected_call_for_authorize:     'Cartão requer autorização. Ligue para seu banco e tente novamente.',
+            cc_rejected_card_disabled:          'Cartão desabilitado. Entre em contato com seu banco.',
+            cc_rejected_duplicated_payment:     'Pagamento duplicado. Já existe uma cobrança recente com este cartão.',
+            cc_rejected_high_risk:              'Pagamento recusado por segurança. Tente outro cartão ou meio de pagamento.',
+            cc_rejected_insufficient_amount:    'Saldo insuficiente. Verifique o limite disponível.',
+            cc_rejected_invalid_installments:   'Número de parcelas não suportado para este cartão.',
+            cc_rejected_max_attempts:           'Limite de tentativas atingido. Aguarde e tente com outro cartão.',
+            cc_rejected_other_reason:           'Recusado pelo banco. Entre em contato com seu banco.',
+        };
+        return map[detail] || 'Verifique os dados do cartão ou tente outro meio de pagamento.';
     }
 
     _showPaymentError(message) {

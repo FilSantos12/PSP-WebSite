@@ -126,6 +126,23 @@
     /* Pendente */
     .step.pending .step-icon { opacity: 0.4; }
 
+    /* Bloco de falha (recusado / cancelado) */
+    .falha-block {
+      text-align: center;
+      padding: 2rem 1rem 1.5rem;
+    }
+    .falha-block .falha-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 1.75rem;
+      margin-bottom: 1rem;
+    }
+    .falha-icon-recusado   { background: #f8d7da; color: #721c24; }
+    .falha-icon-cancelado  { background: #f8d7da; color: #721c24; }
+    .falha-icon-reembolsado { background: #e2e3e5; color: #383d41; }
+    .falha-icon-contestado  { background: #fff3cd; color: #856404; }
+
     .step-label {
         margin-top: 0.5rem;
         font-size: 0.7rem;
@@ -253,8 +270,8 @@
       <span id="rStatusBadge" class="badge-status"></span>
     </div>
 
-    <!-- Timeline unificada -->
-    <div class="step-tracker" id="unifiedTimeline">
+    <!-- Timeline unificada (pedidos em andamento / aprovados) -->
+    <div class="step-tracker" id="unifiedTimeline" style="display:none;">
       <div class="step" data-step="0">
         <div class="step-icon"><i class="fas fa-check"></i></div>
         <div class="step-label">Pedido<br>Recebido</div>
@@ -279,6 +296,16 @@
         <div class="step-icon"><i class="fas fa-barcode"></i></div>
         <div class="step-label">Código de<br>Rastreio</div>
       </div>
+    </div>
+
+    <!-- Bloco de falha (recusado / cancelado / reembolsado / contestado) -->
+    <div id="falhaBlock" class="falha-block" style="display:none;">
+      <div class="falha-icon" id="falhaIcon"></div>
+      <p class="fw-semibold mb-1" id="falhaTitle"></p>
+      <p class="text-muted small mb-3" id="falhaDesc"></p>
+      <a href="mailto:contato@pspart.com.br" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-envelope me-1"></i>Falar com a loja
+      </a>
     </div>
 
     <!-- Caixa do código de rastreio (visível apenas no step 5) -->
@@ -378,12 +405,12 @@
     aprovado:    { label: 'Pagamento Aprovado',   cls: 'badge-aprovado',    tl: 2, msg: null },
     pendente:    { label: 'Aguardando Pagamento', cls: 'badge-pendente',    tl: 0, msg: 'Aguardando confirmação do pagamento. Se você já pagou, pode levar alguns minutos.' },
     em_analise:  { label: 'Em Análise',           cls: 'badge-em_analise',  tl: 1, msg: 'Seu pagamento está sendo analisado pelo Mercado Pago.' },
-    recusado:    { label: 'Pagamento Recusado',   cls: 'badge-recusado',    tl: -1, msg: 'Seu pagamento foi recusado. Entre em contato conosco para mais informações.' },
-    cancelado:   { label: 'Pedido Cancelado',     cls: 'badge-cancelado',   tl: -1, msg: 'Este pedido foi cancelado.' },
-    reembolsado:      { label: 'Reembolsado',      cls: 'badge-reembolsado',      tl: -1, msg: 'O valor pago foi reembolsado.' },
-    contestado:       { label: 'Em Contestação',  cls: 'badge-contestado',       tl: -1, msg: 'Este pagamento está em processo de contestação.' },
-    em_processamento: { label: 'Em Processamento',cls: 'badge-em_processamento', tl: 3,  msg: 'Seu pedido está sendo preparado para envio.' },
-    enviado:          { label: 'Enviado',          cls: 'badge-enviado',          tl: 4,  msg: null },
+    recusado:    { label: 'Pagamento Recusado',   cls: 'badge-recusado',    tl: -1, falha: { icon: 'fa-times-circle', iconCls: 'falha-icon-recusado',  titulo: 'Pagamento não aprovado', desc: 'Seu pagamento foi recusado pela operadora. Verifique os dados do cartão ou tente outro meio de pagamento.' } },
+    cancelado:   { label: 'Pedido Cancelado',     cls: 'badge-cancelado',   tl: -1, falha: { icon: 'fa-ban',          iconCls: 'falha-icon-cancelado',  titulo: 'Pedido cancelado',        desc: 'Este pedido foi cancelado. Se tiver dúvidas, entre em contato com a loja.' } },
+    reembolsado: { label: 'Reembolsado',          cls: 'badge-reembolsado', tl: -1, falha: { icon: 'fa-undo',         iconCls: 'falha-icon-reembolsado', titulo: 'Valor reembolsado',       desc: 'O estorno foi solicitado. O prazo de devolução depende da operadora do cartão.' } },
+    contestado:  { label: 'Em Contestação',       cls: 'badge-contestado',  tl: -1, falha: { icon: 'fa-exclamation-triangle', iconCls: 'falha-icon-contestado', titulo: 'Pagamento em contestação', desc: 'Este pagamento está em processo de contestação junto à operadora.' } },
+    em_processamento: { label: 'Em Processamento',cls: 'badge-em_processamento', tl: 3, msg: 'Seu pedido está sendo preparado para envio.' },
+    enviado:          { label: 'Enviado',          cls: 'badge-enviado',          tl: 4, msg: null },
   };
 
   // ── Timeline unificada (6 passos) ───────────────────────────────────────────
@@ -525,10 +552,10 @@
     $('rFreteRow').style.display    = 'none';
     $('rTotal').textContent = fmt(p.total);
 
-    // Mensagem de status
+    // Mensagem de status (pendente / em_analise)
     if (cfg.msg) {
       const el = $('rMensagem');
-      const alertCls = p.status === 'pendente' || p.status === 'em_analise' ? 'alert-warning' : 'alert-danger';
+      const alertCls = p.status === 'pendente' || p.status === 'em_analise' ? 'alert-warning' : 'alert-info';
       el.className   = 'alert mt-4 mb-0 ' + alertCls;
       el.innerHTML   = `<i class="fas fa-info-circle me-2"></i>${cfg.msg}`;
       el.style.display = '';
@@ -540,12 +567,26 @@
     $('resultSection').style.display  = '';
     $('errorSection').style.display   = 'none';
 
-    // Renderiza timeline: se pagamento confirmado, busca tracking; senão renderiza direto
-    if (PAYMENT_OK.includes(p.status)) {
-      renderUnifiedTimeline(p.status, 0, null, null, null); // estado inicial enquanto carrega
-      fetchShippingTracking(p.status, p.id);
+    // Timeline vs bloco de falha — padrão Mercado Livre:
+    // pedidos recusados/cancelados não exibem etapas de entrega
+    if (cfg.falha) {
+      $('unifiedTimeline').style.display = 'none';
+      $('shippingCodeBox').style.display = 'none';
+      const fb = $('falhaBlock');
+      $('falhaIcon').className  = 'falha-icon ' + cfg.falha.iconCls;
+      $('falhaIcon').innerHTML  = `<i class="fas ${cfg.falha.icon}"></i>`;
+      $('falhaTitle').textContent = cfg.falha.titulo;
+      $('falhaDesc').textContent  = cfg.falha.desc;
+      fb.style.display = '';
     } else {
-      renderUnifiedTimeline(p.status, -1, null, null, null);
+      $('falhaBlock').style.display = 'none';
+      $('unifiedTimeline').style.display = '';
+      if (PAYMENT_OK.includes(p.status)) {
+        renderUnifiedTimeline(p.status, 0, null, null, null);
+        fetchShippingTracking(p.status, p.id);
+      } else {
+        renderUnifiedTimeline(p.status, -1, null, null, null);
+      }
     }
   }
 

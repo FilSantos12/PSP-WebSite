@@ -12,7 +12,7 @@ $labelColors = ['secondary', 'primary', 'warning', 'success'];
 $rows = $pdo->query("
     SELECT ot.order_id, ot.status, ot.tracking_code, ot.carrier, ot.notes, ot.updated_at,
            ot.chosen_carrier, ot.chosen_service, ot.shipping_price, ot.shipping_deadline, ot.destination_cep,
-           p.nome_comprador, p.email_comprador
+           p.nome_comprador, p.email_comprador, p.status AS pedido_status
     FROM order_tracking ot
     LEFT JOIN pedidos p ON p.id = CAST(ot.order_id AS INTEGER)
     ORDER BY ot.updated_at DESC
@@ -67,20 +67,36 @@ layout_head('Rastreamento de Pedidos');
                 </tr>
             </thead>
             <tbody id="trackingTableBody">
-            <?php foreach ($rows as $r):
-                $s   = (int) $r['status'];
-                $lbl = $labels[$s] ?? '?';
-                $clr = $labelColors[$s] ?? 'secondary';
-                $upd = $r['updated_at'] ? date('d/m/Y H:i', strtotime($r['updated_at'])) : '—';
+            <?php
+            $pedidoStatusFalha = [
+                'recusado'   => ['label' => 'Recusado',   'cor' => 'danger'],
+                'cancelado'  => ['label' => 'Cancelado',  'cor' => 'danger'],
+                'reembolsado'=> ['label' => 'Reembolsado','cor' => 'secondary'],
+                'contestado' => ['label' => 'Contestado', 'cor' => 'warning'],
+            ];
+            foreach ($rows as $r):
+                $s          = (int) $r['status'];
+                $lbl        = $labels[$s] ?? '?';
+                $clr        = $labelColors[$s] ?? 'secondary';
+                $upd        = $r['updated_at'] ? date('d/m/Y H:i', strtotime($r['updated_at'])) : '—';
+                $pStatus    = $r['pedido_status'] ?? '';
+                $isFalha    = isset($pedidoStatusFalha[$pStatus]);
+                $falhaInfo  = $isFalha ? $pedidoStatusFalha[$pStatus] : null;
             ?>
-            <tr data-orderid="<?= htmlspecialchars($r['order_id']) ?>">
+            <tr data-orderid="<?= htmlspecialchars($r['order_id']) ?>"<?= $isFalha ? ' class="table-danger opacity-75"' : '' ?>>
                 <td><strong>#<?= htmlspecialchars($r['order_id']) ?></strong></td>
                 <td>
                     <div class="small"><?= htmlspecialchars($r['nome_comprador'] ?? '—') ?></div>
                     <div class="text-muted" style="font-size:.75rem;"><?= htmlspecialchars($r['email_comprador'] ?? '') ?></div>
                 </td>
                 <td>
-                    <span class="badge bg-<?= $clr ?> td-status"><?= htmlspecialchars($lbl) ?></span>
+                    <?php if ($isFalha): ?>
+                        <span class="badge bg-<?= $falhaInfo['cor'] ?> td-status">
+                            <i class="fas fa-times-circle me-1"></i><?= $falhaInfo['label'] ?>
+                        </span>
+                    <?php else: ?>
+                        <span class="badge bg-<?= $clr ?> td-status"><?= htmlspecialchars($lbl) ?></span>
+                    <?php endif; ?>
                 </td>
                 <td>
                     <?php if ($r['chosen_carrier']): ?>
