@@ -20,9 +20,14 @@ if ($busca) {
     $params[] = "%$busca%";
 }
 
-$sql = "SELECT * FROM pedidos";
+$sql = "
+    SELECT p.*,
+           ot.chosen_carrier, ot.chosen_service, ot.tracking_code AS ot_tracking_code
+    FROM pedidos p
+    LEFT JOIN order_tracking ot ON ot.order_id = CAST(p.id AS TEXT)
+";
 if ($where) $sql .= " WHERE " . implode(" AND ", $where);
-$sql .= " ORDER BY id DESC";
+$sql .= " ORDER BY p.id DESC";
 
 $stmt    = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -91,6 +96,7 @@ layout_head('Pedidos');
                     <th>E-mail</th>
                     <th>Total</th>
                     <th>Status</th>
+                    <th>Envio</th>
                     <th>Data</th>
                     <th></th>
                 </tr>
@@ -103,6 +109,21 @@ layout_head('Pedidos');
                     <td class="text-muted small"><?= htmlspecialchars($p['email_comprador']) ?></td>
                     <td>R$ <?= number_format($p['total'], 2, ',', '.') ?></td>
                     <td><span class="badge bg-<?= $statusBadge[$p['status']] ?? 'secondary' ?>"><?= $statusLabel[$p['status']] ?? $p['status'] ?></span></td>
+                    <td>
+                        <?php if ($p['chosen_carrier']): ?>
+                            <span class="badge-envio">
+                                <span class="badge-envio-carrier"><?= htmlspecialchars($p['chosen_carrier']) ?></span>
+                                <span class="badge-envio-service"><?= htmlspecialchars($p['chosen_service'] ?? '') ?></span>
+                            </span>
+                            <?php if (!$p['ot_tracking_code']): ?>
+                                <span class="badge-rastreio-pendente" title="Código de rastreio ainda não inserido">
+                                    <i class="fas fa-clock"></i>
+                                </span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span class="text-muted small">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-muted small"><?= date('d/m/Y H:i', strtotime($p['criado_em'])) ?></td>
                     <td><a href="pedido-detalhe.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye me-1"></i> Ver detalhe</a></td>
                 </tr>

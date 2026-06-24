@@ -24,6 +24,13 @@ $stmtItens = $pdo->prepare("
 $stmtItens->execute([':id' => $id]);
 $itens = $stmtItens->fetchAll(PDO::FETCH_ASSOC);
 
+$stmtTracking = $pdo->prepare("
+    SELECT carrier, chosen_carrier, chosen_service, shipping_price
+    FROM order_tracking WHERE order_id = :oid LIMIT 1
+");
+$stmtTracking->execute([':oid' => (string) $id]);
+$tracking = $stmtTracking->fetch(PDO::FETCH_ASSOC);
+
 $statusLabel = match($pedido['status']) {
     'aprovado'         => 'Aprovado',
     'pendente'         => 'Pendente',
@@ -126,7 +133,18 @@ $statusLabel = match($pedido['status']) {
   <?= htmlspecialchars($pedido['bairro']) ?> —
   <?= htmlspecialchars($pedido['cidade']) ?>/<?= htmlspecialchars($pedido['estado']) ?> —
   CEP <?= htmlspecialchars($pedido['cep']) ?><br>
-  <strong>Telefone:</strong> <?= htmlspecialchars($pedido['telefone_comprador']) ?>
+  <strong>Telefone:</strong> <?= htmlspecialchars($pedido['telefone_comprador']) ?><br>
+  <?php
+  $transpEfetiva = $tracking['carrier'] ?? $tracking['chosen_carrier'] ?? null;
+  $servico       = $tracking['chosen_service'] ?? null;
+  $freteValor    = isset($tracking['shipping_price']) ? (float) $tracking['shipping_price'] : null;
+  $transpLabel   = trim(($transpEfetiva ?? 'A definir') . ($servico ? ' — ' . $servico : ''));
+  ?>
+  <strong>Transportadora:</strong> <?= htmlspecialchars($transpLabel) ?>
+  <?php if ($freteValor !== null): ?>
+    — <strong>Frete:</strong>
+    <?= $freteValor === 0.0 ? 'Grátis' : 'R$ ' . number_format($freteValor, 2, ',', '.') ?>
+  <?php endif; ?>
 </div>
 <?php endif; ?>
 

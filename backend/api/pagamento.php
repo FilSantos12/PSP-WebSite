@@ -44,22 +44,44 @@ try {
         json_erro('Pedido não encontrado.', 404);
     }
 
+    // Busca frete gravado no checkout (já validado em pedidos.php)
+    $stmtFrete = $pdo->prepare("
+        SELECT shipping_price, chosen_carrier, chosen_service
+        FROM order_tracking WHERE order_id = :id
+    ");
+    $stmtFrete->execute([':id' => (string) $pedidoId]);
+    $tracking = $stmtFrete->fetch();
+
     // ── Configura o SDK v3 ───────────────────────────────────────────────────
     MercadoPagoConfig::setAccessToken(MP_ACCESS_TOKEN);
+
+    // ── Monta itens (produto + frete se houver) ──────────────────────────────
+    $items = [
+        [
+            'id'          => (string) $pedidoId,
+            'title'       => $pedido['produto_nome'],
+            'quantity'    => (int)   $pedido['quantidade'],
+            'unit_price'  => (float) $pedido['preco_unitario'],
+            'currency_id' => 'BRL',
+        ],
+    ];
+
+    if ($tracking && (float) $tracking['shipping_price'] > 0) {
+        $freteNome = trim(($tracking['chosen_carrier'] ?? '') . ' ' . ($tracking['chosen_service'] ?? '')) ?: 'Frete';
+        $items[] = [
+            'id'          => 'frete_' . $pedidoId,
+            'title'       => 'Frete — ' . $freteNome,
+            'quantity'    => 1,
+            'unit_price'  => (float) $tracking['shipping_price'],
+            'currency_id' => 'BRL',
+        ];
+    }
 
     // ── Cria a preference ────────────────────────────────────────────────────
     $client = new PreferenceClient();
 
     $preference = $client->create([
-        'items' => [
-            [
-                'id'          => (string) $pedidoId,
-                'title'       => $pedido['produto_nome'],
-                'quantity'    => (int)   $pedido['quantidade'],
-                'unit_price'  => (float) $pedido['preco_unitario'],
-                'currency_id' => 'BRL',
-            ],
-        ],
+        'items' => $items,
         'payer' => [
             'email' => $pedido['email_comprador'],
             'name'  => $pedido['nome_comprador'],

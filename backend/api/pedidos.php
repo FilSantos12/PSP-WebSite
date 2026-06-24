@@ -40,6 +40,7 @@ $cidade      = trim($body['cidade']      ?? '');
 $estado      = trim($body['estado']      ?? '');
 $produtoId   = (int) ($body['produto_id']  ?? 0);
 $quantidade  = (int) ($body['quantidade']  ?? 0);
+$freteEscolhido = $body['frete_escolhido'] ?? null; // opcional
 
 if ($produtoId <= 0)  json_erro('produto_id inválido.', 422);
 if ($quantidade <= 0) json_erro('quantidade deve ser maior que zero.', 422);
@@ -68,13 +69,65 @@ try {
     }
 
     $precoUnitario = (float) $produto['preco'];
-    $total         = $precoUnitario * $quantidade;
+    $subtotal      = $precoUnitario * $quantidade;
+
+    // Valida frete antes da transação para incluir no total
+    $fretePrice     = 0.0;
+    $freteValidado  = false;
+    $freteCarrier   = null;
+    $freteService   = null;
+    $freteServiceId = null;
+    $freteDeadline  = null;
+    $destCep        = null;
+
+    if (is_array($freteEscolhido) && isset($freteEscolhido['id'])) {
+        $serviceId  = (int)   ($freteEscolhido['id']            ?? 0);
+        $carrier    = trim(   $freteEscolhido['transportadora']  ?? '');
+        $service    = trim(   $freteEscolhido['nome']            ?? '');
+        $price      = (float) ($freteEscolhido['preco']          ?? 0);
+        $deadline   = (int)   ($freteEscolhido['prazo_max']      ?? 0);
+        $destCep    = preg_replace('/\D/', '', $cep);
+
+        // Valida contra o cache de cotações (anti-adulteração de preço)
+        $cacheKey = md5('v1:' . $produtoId . ':' . $destCep);
+        $cHit = $pdo->prepare("SELECT payload, criado_em FROM cache_cotacoes WHERE cache_key = :k");
+        $cHit->execute([':k' => $cacheKey]);
+        $cached = $cHit->fetch();
+
+        if ($cached && (time() - strtotime($cached['criado_em'])) < 12 * 3600) {
+            $payload = json_decode($cached['payload'], true);
+            foreach (($payload['servicos'] ?? []) as $sv) {
+                if ((int) $sv['id'] === $serviceId) {
+                    if (abs((float) $sv['preco'] - $price) <= 0.10) {
+                        $carrier       = $sv['transportadora'];
+                        $service       = $sv['nome'];
+                        $price         = (float) $sv['preco'];
+                        $deadline      = (int) $sv['prazo_max'];
+                        $freteValidado = true;
+                    }
+                    break;
+                }
+            }
+        } else {
+            $freteValidado = ($serviceId > 0 && $carrier !== '' && $service !== '');
+        }
+
+        if ($freteValidado) {
+            $fretePrice     = $price;
+            $freteCarrier   = $carrier;
+            $freteService   = $service;
+            $freteServiceId = $serviceId;
+            $freteDeadline  = $deadline;
+        }
+    }
+
+    $total = $subtotal + $fretePrice;
 
     $token = bin2hex(random_bytes(16));
 
     $pdo->beginTransaction();
 
-    // Insere o pedido
+    // Insere o pedido (total já inclui frete)
     $stmt = $pdo->prepare("
         INSERT INTO pedidos (nome_comprador, email_comprador, telefone_comprador,
                              cep, endereco, numero, complemento, bairro, cidade, estado,
@@ -118,6 +171,37 @@ try {
 
     $pdo->commit();
 
+    // Persiste escolha de frete em order_tracking
+    if ($freteValidado) {
+        $pdo->prepare("
+            INSERT INTO order_tracking
+                (order_id, status, carrier, chosen_carrier, chosen_service,
+                 chosen_service_id, shipping_price, shipping_deadline, destination_cep, updated_at)
+            VALUES
+                (:oid, 0, :carrier, :chosen_carrier, :chosen_service,
+                 :service_id, :price, :deadline, :dest_cep, :now)
+            ON CONFLICT(order_id) DO UPDATE SET
+                chosen_carrier    = excluded.chosen_carrier,
+                chosen_service    = excluded.chosen_service,
+                chosen_service_id = excluded.chosen_service_id,
+                shipping_price    = excluded.shipping_price,
+                shipping_deadline = excluded.shipping_deadline,
+                destination_cep   = excluded.destination_cep,
+                carrier           = excluded.carrier,
+                updated_at        = excluded.updated_at
+        ")->execute([
+            ':oid'            => (string) $pedidoId,
+            ':carrier'        => $freteCarrier,
+            ':chosen_carrier' => $freteCarrier,
+            ':chosen_service' => $freteService,
+            ':service_id'     => $freteServiceId,
+            ':price'          => $fretePrice,
+            ':deadline'       => $freteDeadline,
+            ':dest_cep'       => $destCep,
+            ':now'            => date('Y-m-d H:i:s'),
+        ]);
+    }
+
     // Envia e-mail de confirmação de pedido recebido
     $pedidoEmail = [
         'id'               => $pedidoId,
@@ -140,6 +224,8 @@ try {
     json_ok([
         'pedido_id' => $pedidoId,
         'total'     => $total,
+        'subtotal'  => $subtotal,
+        'frete'     => $fretePrice,
         'status'    => 'pendente',
         'token'     => $token,
     ], 201);

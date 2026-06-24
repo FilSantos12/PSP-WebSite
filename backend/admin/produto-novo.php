@@ -5,7 +5,7 @@ require_once __DIR__ . '/_layout.php';
 
 $erros        = [];
 $produtoCriado = null;
-$dados = ['nome' => '', 'descricao' => '', 'preco' => '', 'categoria' => '', 'estoque' => '', 'ativo' => 1, 'codigo_interno' => '', 'especificacao_tecnica' => ''];
+$dados = ['nome' => '', 'descricao' => '', 'preco' => '', 'categoria' => '', 'estoque' => '', 'ativo' => 1, 'codigo_interno' => '', 'especificacao_tecnica' => '', 'peso' => '0.5', 'largura' => '15', 'altura' => '10', 'comprimento' => '20'];
 
 $pdo = getDB();
 $categoriasDb = $pdo->query("SELECT slug, nome FROM categorias ORDER BY ordem ASC, nome ASC")->fetchAll();
@@ -19,11 +19,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dados['ativo']                 = isset($_POST['ativo']) ? 1 : 0;
     $dados['codigo_interno']        = strtoupper(trim($_POST['codigo_interno'] ?? ''));
     $dados['especificacao_tecnica'] = trim($_POST['especificacao_tecnica'] ?? '');
+    $dados['peso']                  = $_POST['peso']        ?? '';
+    $dados['largura']               = $_POST['largura']     ?? '';
+    $dados['altura']                = $_POST['altura']      ?? '';
+    $dados['comprimento']           = $_POST['comprimento'] ?? '';
 
     if (!$dados['nome'])      $erros[] = 'Nome é obrigatório.';
     if (!$dados['categoria']) $erros[] = 'Categoria é obrigatória.';
-    if (!is_numeric($dados['preco']) || $dados['preco'] < 0)     $erros[] = 'Preço inválido.';
-    if (!is_numeric($dados['estoque']) || $dados['estoque'] < 0) $erros[] = 'Estoque inválido.';
+    if (!is_numeric($dados['preco']) || $dados['preco'] < 0)         $erros[] = 'Preço inválido.';
+    if (!is_numeric($dados['estoque']) || $dados['estoque'] < 0)     $erros[] = 'Estoque inválido.';
+    if (!is_numeric($dados['peso']) || $dados['peso'] <= 0)          $erros[] = 'Peso inválido (deve ser maior que zero).';
+    if (!is_numeric($dados['largura']) || $dados['largura'] <= 0)    $erros[] = 'Largura inválida.';
+    if (!is_numeric($dados['altura']) || $dados['altura'] <= 0)      $erros[] = 'Altura inválida.';
+    if (!is_numeric($dados['comprimento']) || $dados['comprimento'] <= 0) $erros[] = 'Comprimento inválido.';
 
     if ($dados['codigo_interno'] !== '') {
         if (!preg_match('/^[A-Z]{2}\.\d{2}\.\d{5}$/', $dados['codigo_interno'])) {
@@ -80,8 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($erros)) {
         $pdo->prepare("
-            INSERT INTO produtos (nome, descricao, preco, categoria, imagem, estoque, ativo, codigo_interno, datasheet, especificacao_tecnica)
-            VALUES (:nome, :descricao, :preco, :categoria, :imagem, :estoque, :ativo, :codigo_interno, :datasheet, :especificacao_tecnica)
+            INSERT INTO produtos (nome, descricao, preco, categoria, imagem, estoque, ativo, codigo_interno, datasheet, especificacao_tecnica, peso, largura, altura, comprimento)
+            VALUES (:nome, :descricao, :preco, :categoria, :imagem, :estoque, :ativo, :codigo_interno, :datasheet, :especificacao_tecnica, :peso, :largura, :altura, :comprimento)
         ")->execute([
             ':nome'                  => $dados['nome'],
             ':descricao'             => $dados['descricao'],
@@ -93,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':codigo_interno'        => $dados['codigo_interno'] ?: null,
             ':datasheet'             => $datasheet,
             ':especificacao_tecnica' => $dados['especificacao_tecnica'] ?: null,
+            ':peso'                  => (float) $dados['peso'],
+            ':largura'               => (float) $dados['largura'],
+            ':altura'                => (float) $dados['altura'],
+            ':comprimento'           => (float) $dados['comprimento'],
         ]);
         $produtoCriado = (int) $pdo->lastInsertId();
 
@@ -347,6 +359,33 @@ layout_head('Novo Produto', $easymde_css);
                             </option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <!-- Dimensões para cálculo de frete -->
+                <div class="col-12">
+                    <label class="form-label fw-semibold">
+                        <i class="fas fa-box me-1 text-muted"></i> Dimensões para frete
+                        <span class="text-danger">*</span>
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label form-label-sm text-muted">Peso (kg)</label>
+                            <input type="number" name="peso" class="form-control form-control-sm" step="0.01" min="0.01" required value="<?= htmlspecialchars($dados['peso']) ?>">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label form-label-sm text-muted">Largura (cm)</label>
+                            <input type="number" name="largura" class="form-control form-control-sm" step="0.1" min="0.1" required value="<?= htmlspecialchars($dados['largura']) ?>">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label form-label-sm text-muted">Altura (cm)</label>
+                            <input type="number" name="altura" class="form-control form-control-sm" step="0.1" min="0.1" required value="<?= htmlspecialchars($dados['altura']) ?>">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label form-label-sm text-muted">Comprimento (cm)</label>
+                            <input type="number" name="comprimento" class="form-control form-control-sm" step="0.1" min="0.1" required value="<?= htmlspecialchars($dados['comprimento']) ?>">
+                        </div>
+                    </div>
+                    <div class="form-text">Dimensões da embalagem com o produto. Usadas no cálculo de frete.</div>
                 </div>
 
                 <div class="col-md-6">

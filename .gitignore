@@ -13,6 +13,8 @@ config/
 # Configurações sensíveis
 config/mercadopago.php
 backend/config/mercadopago.php
+backend/config/melhorenvio.php
+backend/config/me_tokens.json
 
 # Setup (rodar localmente e apagar após uso)
 setup.php

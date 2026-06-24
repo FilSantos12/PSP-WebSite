@@ -28,6 +28,32 @@ class MelhorEnvio
     // ── Público ───────────────────────────────────────────────────────────────
 
     /**
+     * Faz uma chamada autenticada à API (GET ou POST) com retry automático em 401.
+     * Usado pelo serviço de etiquetas (shipment.php).
+     *
+     * @param string     $method  'GET' ou 'POST'
+     * @param string     $path    Ex: '/api/v2/me/cart'
+     * @param array|null $payload Body JSON para POST; null para GET
+     * @return array ['code' => int, 'data' => array|null, 'body' => string]
+     */
+    public function request(string $method, string $path, ?array $payload = null): array
+    {
+        $this->token = $this->getValidToken();
+        $resp        = $this->_request($method, $this->baseUrl . $path, $payload);
+
+        if ($resp['code'] === 401) {
+            if (!$this->_renovarToken()) {
+                throw new RuntimeException(
+                    'Token do Melhor Envio expirado e renovação falhou. Reautorize em Admin → Integrações.'
+                );
+            }
+            $resp = $this->_request($method, $this->baseUrl . $path, $payload);
+        }
+
+        return $resp;
+    }
+
+    /**
      * Calcula frete para um produto e CEP de destino.
      *
      * @param array  $produto    Linha do banco com id, preco, peso, largura, altura, comprimento
@@ -226,6 +252,39 @@ class MelhorEnvio
         });
 
         return $resultado;
+    }
+
+    private function _request(string $method, string $url, ?array $payload = null): array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Bearer ' . $this->token,
+                'User-Agent: ' . $this->userAgent,
+            ],
+        ]);
+
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS,
+                $payload !== null ? json_encode($payload, JSON_UNESCAPED_UNICODE) : '{}'
+            );
+        }
+
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false) {
+            throw new RuntimeException('Falha de conexão com o Melhor Envio: ' . $err);
+        }
+
+        return ['code' => $code, 'data' => json_decode($body, true), 'body' => $body];
     }
 
     private function _post(string $caminho, array $payload): array

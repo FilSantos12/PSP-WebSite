@@ -36,6 +36,10 @@ if ($method === 'GET') {
 
     if (!$row) json_erro('Pedido não encontrado no sistema de rastreio.', 404);
 
+    $stmtPedido = $pdo->prepare("SELECT status FROM pedidos WHERE id = :id LIMIT 1");
+    $stmtPedido->execute([':id' => (int) $orderId]);
+    $pedidoStatus = $stmtPedido->fetchColumn() ?: 'pendente';
+
     $labels = ['Em Preparação', 'Embalado', 'Enviado', 'Código de Rastreio'];
     $status = (int) $row['status'];
 
@@ -46,14 +50,20 @@ if ($method === 'GET') {
     }
 
     json_ok([
-        'order_id'      => $row['order_id'],
-        'status'        => $status,
-        'status_label'  => $labels[$status] ?? 'Desconhecido',
-        'tracking_code' => $row['tracking_code'],
-        'carrier'       => $row['carrier'],
-        'tracking_url'  => $trackingUrl,
-        'updated_at'    => $row['updated_at'],
-        'notes'         => $row['notes'],
+        'order_id'         => $row['order_id'],
+        'pedido_status'    => $pedidoStatus,
+        'status'           => $status,
+        'status_label'     => $labels[$status] ?? 'Desconhecido',
+        'tracking_code'    => $row['tracking_code'],
+        'carrier'          => $row['carrier'],
+        'tracking_url'     => $trackingUrl,
+        'updated_at'       => $row['updated_at'],
+        'notes'            => $row['notes'],
+        'chosen_carrier'   => $row['chosen_carrier']   ?? null,
+        'chosen_service'   => $row['chosen_service']   ?? null,
+        'shipping_price'   => isset($row['shipping_price'])   ? (float) $row['shipping_price']   : null,
+        'shipping_deadline'=> isset($row['shipping_deadline']) ? (int)   $row['shipping_deadline'] : null,
+        'destination_cep'  => $row['destination_cep']  ?? null,
     ]);
 }
 
@@ -93,6 +103,8 @@ if ($method === 'POST') {
             carrier       = excluded.carrier,
             notes         = excluded.notes,
             updated_at    = :now
+        -- chosen_carrier, chosen_service, chosen_service_id, shipping_price,
+        -- shipping_deadline, destination_cep nunca são sobrescritas pelo admin
     ")->execute([
         ':oid'     => $orderId,
         ':status'  => $status,

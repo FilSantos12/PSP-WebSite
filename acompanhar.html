@@ -312,6 +312,16 @@
         </thead>
         <tbody id="rItens"></tbody>
         <tfoot>
+          <tr id="rSubtotalRow" style="display:none;">
+            <td colspan="3" class="text-end text-muted small">Subtotal</td>
+            <td class="text-end text-muted small" id="rSubtotal"></td>
+          </tr>
+          <tr id="rFreteRow" style="display:none;">
+            <td colspan="3" class="text-end text-muted small">
+              <i class="fas fa-truck me-1"></i><span id="rFreteNome">Frete</span>
+            </td>
+            <td class="text-end text-muted small" id="rFreteVal"></td>
+          </tr>
           <tr>
             <td colspan="3" class="text-end fw-bold">Total:</td>
             <td class="text-end fw-bold text-primary" id="rTotal"></td>
@@ -348,6 +358,8 @@
   const API = 'backend/api/acompanhar.php';
 
   const $ = id => document.getElementById(id);
+
+  let _subtotalPedido = 0; // guardado em renderPedido, lido em renderFreteBreakdown
 
   function fmt(valor) {
     return 'R$ ' + parseFloat(valor).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -431,12 +443,30 @@
       const data = await res.json();
       if (res.ok) {
         renderUnifiedTimeline(status, data.status, data.tracking_code, data.tracking_url, data.carrier);
+        if (data.shipping_price > 0) renderFreteBreakdown(data);
       } else {
         renderUnifiedTimeline(status, 0, null, null, null);
       }
     } catch (_) {
       renderUnifiedTimeline(status, 0, null, null, null);
     }
+  }
+
+  function renderFreteBreakdown(trackingData) {
+    const frete = parseFloat(trackingData.shipping_price) || 0;
+    if (frete <= 0) return;
+
+    $('rSubtotal').textContent = fmt(_subtotalPedido);
+    $('rSubtotalRow').style.display = '';
+
+    let freteNome = 'Frete';
+    if (trackingData.chosen_carrier) {
+      freteNome = trackingData.chosen_carrier;
+      if (trackingData.chosen_service) freteNome += ' — ' + trackingData.chosen_service;
+    }
+    $('rFreteNome').textContent = freteNome;
+    $('rFreteVal').textContent  = fmt(frete);
+    $('rFreteRow').style.display = '';
   }
 
   // Botão copiar código
@@ -476,8 +506,10 @@
     // Itens
     const tbody = $('rItens');
     tbody.innerHTML = '';
+    _subtotalPedido = 0;
     data.itens.forEach(item => {
       const sub = item.preco_unitario * item.quantidade;
+      _subtotalPedido += sub;
       const tr  = document.createElement('tr');
       tr.className = 'item-row';
       tr.innerHTML = `
@@ -488,6 +520,9 @@
       tbody.appendChild(tr);
     });
 
+    // Garante que as linhas de frete fiquem ocultas até o tracking carregar
+    $('rSubtotalRow').style.display = 'none';
+    $('rFreteRow').style.display    = 'none';
     $('rTotal').textContent = fmt(p.total);
 
     // Mensagem de status

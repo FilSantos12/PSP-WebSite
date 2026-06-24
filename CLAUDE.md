@@ -309,6 +309,9 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 11 | Prazo de entrega via API Melhor Envio — proxy PHP + cache + frontend nos modais de produto e checkout | ✅ Concluído |
 | Fase 12 | Transportadora escolhida pelo cliente — captura no checkout, persistência em order_tracking, exibição no painel admin | ✅ Concluído |
 | Fase 13 | Autenticação OAuth2 com Melhor Envio — fluxo authorization_code, token no banco, refresh automático, painel de integração | ✅ Concluído |
+| Fase 14 | Frete cobrado no total + CEP lembrado — frete somado ao total do pedido e à preference MP; botão "Alterar CEP"; localStorage persistente | ✅ Concluído |
+| Fase 15 | Status automático + frete na ficha/detalhe — `resolverStatusPedido` centralizado; frete em `pedido-detalhe.php` e `pedido-ficha.php`; status derivado automático no Bricks; `pedido_status` exposto em `tracking.php` | ✅ Concluído |
+| Fase 16 | Emissão de etiquetas Melhor Envio — fluxo 4 etapas (cart→checkout→generate→print); serviço em `backend/melhorenvio/shipment.php`; endpoint admin `etiqueta-action.php`; bloco UI em `pedido-detalhe.php`; trava `LOJA_DADOS_REAIS`; tracking_code automático via `meTracking()` | ✅ Concluído |
 
 ## Módulo Frete — Melhor Envio (Fase 11)
 
@@ -430,6 +433,48 @@ Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `s
 - `_renderFrete()` — modais de produto, exibição informativa (inalterado)
 - `_renderFreteCheckout()` — modal de checkout, opções clicáveis com seleção visual; classe `.frete-opcao--selec` + `.frete-opcao--ativo`; ícone `.frete-selec-check` visível apenas na opção ativa
 
+## Módulo Frete no Total + CEP Persistente (Fase 14)
+
+### O que mudou em relação à Fase 12
+
+#### Backend
+
+| Arquivo | Mudança |
+|---|---|
+| `backend/api/pedidos.php` | Validação do frete movida para antes da transação; `total = subtotal + fretePrice` gravado em `pedidos.total` |
+| `backend/api/pagamento.php` | Busca `order_tracking` após carregar o pedido; adiciona item `"Frete — {carrier} {service}"` à lista `items` da preference MP se `shipping_price > 0` |
+
+- `pedidos.php` retorna agora `{ pedido_id, total, subtotal, frete, status, token }`
+- `processar-pagamento.php` não precisou de alteração — `transaction_amount` já vem de `pedidos.total` no banco
+
+#### Frontend (`script.js`)
+
+| Método | Mudança |
+|---|---|
+| `_updateCheckoutTotal(price, qty)` | Calcula `subtotal + frete`; atualiza `#checkout-resumo` (exibe quando frete definido); chama `_updatePaymentBtns()` |
+| `_updatePaymentBtns()` | **Novo** — habilita/desabilita botões; mostra/oculta `#checkout-frete-aviso` |
+| `_renderFreteCheckout()` | Adicionado botão "Alterar CEP" (`.frete-alterar-cep-btn`) na label; ao selecionar opção chama `_updateCheckoutTotal()`; ao carregar primeira opção já atualiza totais |
+| `_alterarCepCheckout()` | **Novo** — limpa frete, reseta totais, foca campo CEP |
+| `_calcularFreteCheckout()` | Salva CEP em `localStorage('psp_cep_entrega')` após sucesso |
+| `_buscarCep()` | Salva CEP em `localStorage('psp_cep_entrega')` após ViaCEP bem-sucedido |
+| `_openCheckoutModal()` | Move `_selectedFrete = null` para antes de `_updateCheckoutTotal`; pré-preenche `#checkout-cep` do localStorage; adiciona listener `shown.bs.modal` (once) para disparar `_buscarCep()` |
+| `_doCheckoutSubmit()` | Guard no início: retorna erro se `_selectedFrete` for null |
+| `setupFrete()` | Trocou `sessionStorage('psp_frete_cep')` → `localStorage('psp_cep_entrega')` em toda a lógica de modais de produto |
+
+#### HTML / CSS
+- Botões `#checkout-submit-redirect` e `#checkout-submit-bricks` iniciam com `disabled`
+- `#checkout-frete-aviso` — "Calcule o frete para continuar" (visível quando sem frete, oculto via JS)
+- `#checkout-resumo` — bloco com subtotal + frete + total (oculto via `style="display:none;"`, revelado pelo JS)
+- `.checkout-resumo` em `style.css` — borda superior + espaçamento + dark mode
+
+### Fluxo de checkout atualizado
+
+1. Modal abre → CEP pré-preenchido do `localStorage` (se houver) → `_buscarCep()` dispara automaticamente
+2. ViaCEP preenche endereço → `_calcularFreteCheckout()` busca cotações → exibe opções + botão "Alterar CEP"
+3. Primeira opção selecionada → `_updateCheckoutTotal()` → `#checkout-resumo` aparece → botões habilitados
+4. Usuário pode trocar opção (atualiza total) ou clicar "Alterar CEP" (limpa frete, desabilita botões)
+5. Ao submeter: `pedidos.php` grava `total = subtotal + frete`; `pagamento.php` envia produto + frete como dois itens ao MP
+
 ## Timezone
 
 - **Fuso horário:** `America/Sao_Paulo` em todas as camadas PHP
@@ -438,6 +483,40 @@ Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `s
 - **`CURRENT_TIMESTAMP` do SQLite é sempre UTC** — todos os inserts/updates que gravam timestamps usam PHP `date('Y-m-d H:i:s')` como parâmetro PDO (não `CURRENT_TIMESTAMP`) para garantir o fuso correto
 - `criado_em` de pedidos: passado explicitamente no INSERT de `pedidos.php`
 - `updated_at` de `order_tracking`: passado como `:now` em `tracking.php`, `webhook.php` e `processar-pagamento.php`
+
+## Emissão de Etiquetas Melhor Envio (Fase 16)
+
+### Arquivos
+| Arquivo | Função |
+|---|---|
+| `backend/config/loja.php` | Dados do remetente + flag `LOJA_DADOS_REAIS` (gitignored) |
+| `backend/melhorenvio/shipment.php` | Serviço: `meCartAdd`, `meCheckout`, `meGenerate`, `mePrint`, `meTracking` |
+| `backend/admin/etiqueta-action.php` | Endpoint AJAX admin — recebe `{action, pedido_id}`, chama o serviço |
+| `backend/admin/pedido-detalhe.php` | Card "Etiqueta de Envio ME" com estado, botões e modal de confirmação de checkout |
+
+### Fluxo das 4 etapas
+1. **Carrinho** (`meCartAdd`) — `POST /api/v2/me/cart` — salva `order_tracking.melhorenvio_order_id`
+2. **Checkout** (`meCheckout`) — `POST /api/v2/me/shipment/checkout` — **debita saldo**; bloqueado se `LOJA_DADOS_REAIS !== true`; modal de confirmação explícita no admin
+3. **Geração** (`meGenerate`) — `POST /api/v2/me/shipment/generate` — assíncrono
+4. **Impressão** (`mePrint`) — `POST /api/v2/me/shipment/print` — salva `order_tracking.label_url`; inclui delay de 5s; tenta capturar `tracking_code` via `meTracking()`
+
+### Colunas adicionadas em `order_tracking`
+- `melhorenvio_order_id TEXT DEFAULT NULL` — ID do envio no ME (retornado pelo cart)
+- `label_url TEXT DEFAULT NULL` — link/PDF da etiqueta (retornado pelo print)
+
+### Regras críticas
+- `meCheckout()` aborta com mensagem clara se `LOJA_DADOS_REAIS !== true`
+- `meCartAdd()` é idempotente: se `melhorenvio_order_id` já existe, retorna estado atual sem nova chamada
+- `meTracking()` só promove `order_tracking.status = 3` se `statusPermiteRastreamento($pedidoStatus) === true` — nunca sobrescreve pedido cancelado/recusado
+- Campo `document` (CPF/CNPJ do comprador) omitido no `to` quando ausente (aceito no sandbox); comentário no código indica ALTER TABLE pontual para produção
+- Token: sempre via `MelhorEnvio::request()` (novo método público) com retry automático em 401
+- Scopes requeridos: `shipping-calculate cart-read cart-write shipping-checkout shipping-generate shipping-print shipping-tracking`
+- Log em `logs/melhorenvio-etiqueta.log`
+
+## Helper de Status (`backend/helpers/status.php`)
+
+- `mpStatusParaInterno(string $mpStatus): string` — fonte única do mapa MP→interno (`approved→aprovado`, `rejected→recusado`, etc.); usado em `webhook.php` e `processar-pagamento.php`
+- `statusPermiteRastreamento(string $pedidoStatus): bool` — retorna `true` apenas para `aprovado` e `em_processamento`; usado em `pedido-detalhe.php` para não exibir "Em Preparação" quando pagamento está recusado/cancelado
 
 ## Módulo de Pagamento — Arquivos Backend
 
@@ -488,12 +567,16 @@ Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `s
 - **Token do Melhor Envio em `melhorenvio_auth` (banco):** fonte única após Fase 13; sem fallback para JSON ou constantes; ausência de token resulta em HTTP 503 no endpoint de frete, nunca em chamada à API com token vazio
 - **Cache de cotações em `cache_cotacoes`:** chave `md5("v1:{produto_id}:{cep}")`, TTL de 12h verificado em runtime com `INSERT OR UPDATE`; evita chamadas repetidas e respeita limites da API
 - **Dias úteis → data calendário:** `_adicionarDiasUteis()` pula sábados, domingos, feriados nacionais fixos + Sexta-Feira Santa e Corpus Christi (calculados via algoritmo de Páscoa gregoriano); cobre ano atual e seguinte
-- **CEP salvo em `sessionStorage('psp_frete_cep')`:** pré-preenchido ao abrir modais de produto; não usa `localStorage` (não é dado pessoal, mas CEP não precisa sobreviver ao fechamento do browser)
+- **CEP salvo em `localStorage('psp_cep_entrega')`:** persiste entre visitas; pré-preenchido ao abrir modais de produto e ao reabrir o checkout (substitui `sessionStorage('psp_frete_cep')` da Fase 11)
 - **Frete no checkout calculado automaticamente:** disparado por `_buscarCep()` após ViaCEP com sucesso — sem botão extra para o usuário; `#frete-resultado-checkout` usa `style="display:none;"` inline (padrão do projeto para JS mostrar/esconder)
 - **Escolha de frete no checkout — seleção visual:** `_renderFreteCheckout()` é separado de `_renderFrete()` (modais de produto); opções clicáveis com `.frete-opcao--selec`; primeira opção pré-selecionada automaticamente; seleção gravada em `this._selectedFrete` e enviada como `frete_escolhido` ao criar o pedido
 - **Escolha de frete — persistência antecipada:** `order_tracking` é criado em `pedidos.php` (no checkout, antes do pagamento) e não apenas na aprovação do pagamento; `webhook.php` e `processar-pagamento.php` continuam com `INSERT OR IGNORE` que não sobrescreve o registro já existente
 - **Colunas `chosen_*` imutáveis pelo admin:** o POST de `tracking.php` usa `ON CONFLICT DO UPDATE` apenas em `status`, `tracking_code`, `carrier`, `notes` e `updated_at` — as colunas de escolha do cliente nunca aparecem no SET do upsert admin
 - **Campo `carrier` pré-preenchido:** ao criar o registro de rastreio em `pedidos.php`, `carrier` recebe o valor de `chosen_carrier`; o admin pode alterar em `tracking-admin.php` sem afetar `chosen_carrier`
+- **Frete somado ao total do pedido:** validação do frete ocorre antes da transação em `pedidos.php`; `total = subtotal + fretePrice` é gravado em `pedidos.total` e repassado ao Mercado Pago como item extra ("Frete — {transportadora} {serviço}") na preference
+- **Pagamentos sem frete bloqueados:** botões de pagamento iniciam `disabled`; habilitados apenas quando `_selectedFrete` está definido; aviso "Calcule o frete para continuar" exibido via `_updatePaymentBtns()`
+- **Bloco de resumo no checkout (`#checkout-resumo`):** aparece após frete selecionado; exibe subtotal + linha de frete + total; atualizado por `_updateCheckoutTotal()` a cada mudança de quantidade ou opção de frete
+- **Botão "Alterar CEP" no checkout:** renderizado dentro de `_renderFreteCheckout()` na label do CEP; chama `_alterarCepCheckout()` que limpa o frete, desabilita botões e foca o campo CEP para re-digitação
 
 ## Placeholders pendentes (necessários antes do deploy)
 - `SEU_NUMERO` — WhatsApp (2 ocorrências: botão hero + botão flutuante)

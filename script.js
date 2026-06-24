@@ -19,6 +19,7 @@ class App {
         this.setupProductFilter();
         this.renderProducts();
         this.handleRetornoMP();
+        this.setupFrete();
     }
 
     setupEventListeners() {
@@ -327,6 +328,7 @@ class App {
         this._checkoutPrice      = 0;
         this._checkoutProductId  = 0;
         this._brickErrorHandled  = false;
+        this._selectedFrete      = null;
 
         // Abre o modal de checkout ao clicar em qualquer .btn-buy
         document.addEventListener('click', (e) => {
@@ -432,6 +434,15 @@ class App {
     }
 
     async _doCheckoutSubmit(mode) {
+        if (!this._selectedFrete) {
+            const alertEl = document.getElementById('checkout-error-msg');
+            if (alertEl) {
+                alertEl.textContent = 'Selecione uma opção de frete para continuar.';
+                alertEl.classList.remove('d-none');
+                setTimeout(() => alertEl.classList.add('d-none'), 6000);
+            }
+            return;
+        }
         if (!this._validateCheckoutForm()) return;
 
         const btns = ['checkout-submit-redirect', 'checkout-submit-bricks']
@@ -459,6 +470,7 @@ class App {
                     estado:             g('checkout-estado'),
                     produto_id:         this._checkoutProductId,
                     quantidade:         qty,
+                    frete_escolhido:    this._selectedFrete || null,
                 }),
             });
             if (!rPedido.ok) {
@@ -658,7 +670,9 @@ class App {
                 document.getElementById('checkout-cidade').value   = data.localidade || '';
                 document.getElementById('checkout-estado').value   = data.uf         || '';
                 cepEl.classList.remove('is-invalid');
+                localStorage.setItem('psp_cep_entrega', cepEl.value);
                 document.getElementById('checkout-numero')?.focus();
+                this._calcularFreteCheckout(cep);
             }
         } catch (_) {
             // falha silenciosa — usuário pode preencher manualmente
@@ -669,6 +683,7 @@ class App {
 
     _openCheckoutModal(productName, price, withDelay) {
         this._unmountBrick();
+        this._selectedFrete = null;
         document.getElementById('checkout-product-name').textContent = productName;
         document.getElementById('checkout-qty').value = 1;
         this._updateCheckoutTotal(price, 1);
@@ -682,16 +697,57 @@ class App {
             if (el) { el.value = ''; el.classList.remove('is-invalid'); }
         });
 
+        const freteCheckout = document.getElementById('frete-resultado-checkout');
+        if (freteCheckout) { freteCheckout.style.display = 'none'; freteCheckout.innerHTML = ''; }
+
+        // Pré-preenche CEP salvo e dispara recálculo ao abrir
+        const savedCep = localStorage.getItem('psp_cep_entrega');
+        if (savedCep) {
+            const cepEl = document.getElementById('checkout-cep');
+            if (cepEl) cepEl.value = savedCep;
+            document.getElementById('checkoutModal')?.addEventListener('shown.bs.modal',
+                () => this._buscarCep(), { once: true });
+        }
+
         setTimeout(() => {
             new bootstrap.Modal(document.getElementById('checkoutModal')).show();
         }, withDelay ? 450 : 0);
     }
 
     _updateCheckoutTotal(price, qty) {
-        const total     = price * qty;
-        const formatted = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('checkout-total').textContent     = formatted;
-        document.getElementById('checkout-btn-total').textContent = formatted;
+        const subtotal = price * qty;
+        const frete    = this._selectedFrete ? (this._selectedFrete.preco || 0) : null;
+        const grand    = frete !== null ? subtotal + frete : subtotal;
+        const fmt      = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        document.getElementById('checkout-total').textContent     = fmt(subtotal);
+        document.getElementById('checkout-btn-total').textContent = fmt(grand);
+
+        const resumoEl = document.getElementById('checkout-resumo');
+        if (resumoEl) {
+            if (frete !== null) {
+                document.getElementById('checkout-subtotal-val').textContent      = fmt(subtotal);
+                const nomeTransp = `${this._selectedFrete.transportadora} ${this._selectedFrete.nome}`;
+                document.getElementById('checkout-frete-nome-resumo').textContent = nomeTransp;
+                document.getElementById('checkout-frete-val-resumo').textContent  =
+                    frete === 0 ? 'Grátis' : fmt(frete);
+                document.getElementById('checkout-grand-total').textContent       = fmt(grand);
+                resumoEl.style.display = '';
+            } else {
+                resumoEl.style.display = 'none';
+            }
+        }
+        this._updatePaymentBtns();
+    }
+
+    _updatePaymentBtns() {
+        const hasFreight = !!this._selectedFrete;
+        ['checkout-submit-redirect', 'checkout-submit-bricks'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.disabled = !hasFreight;
+        });
+        const warnEl = document.getElementById('checkout-frete-aviso');
+        if (warnEl) warnEl.style.display = hasFreight ? 'none' : '';
     }
 
     // ── LIGHTBOX ─────────────────────────────────────────────────────────────
@@ -885,6 +941,25 @@ class App {
                                         ${p.estoque > 0
                                             ? `<span class="badge bg-success">Em estoque (${p.estoque} un.)</span>`
                                             : `<span class="badge bg-danger">Fora de estoque</span>`}
+                                        <div class="frete-calc" data-produto-id="${p.id}">
+                                            <p class="fw-semibold small text-muted mb-2">
+                                                <i class="fas fa-truck me-1"></i>Calcular prazo de entrega
+                                            </p>
+                                            <div class="d-flex gap-2">
+                                                <input type="text" class="form-control form-control-sm frete-cep-input"
+                                                       placeholder="00000-000" maxlength="9"
+                                                       aria-label="CEP para calcular frete">
+                                                <button type="button" class="btn btn-sm btn-outline-primary frete-btn-calcular">
+                                                    Calcular
+                                                </button>
+                                            </div>
+                                            <a href="https://buscacepinter.correios.com.br/app/endereco/index.php"
+                                               target="_blank" rel="noopener noreferrer"
+                                               class="text-muted small text-decoration-none d-inline-block mt-1">
+                                                <i class="fas fa-magnifying-glass me-1"></i>Não sei meu CEP
+                                            </a>
+                                            <div class="frete-resultado"></div>
+                                        </div>
                                         ${especHtml}
                                     </div>
                                 </div>
@@ -952,6 +1027,289 @@ class App {
         if (text)    text.textContent    = 'O pagamento está sendo processado. Você receberá um e-mail assim que for confirmado.';
 
         new bootstrap.Modal(modal).show();
+    }
+
+    // ── FRETE / PRAZO DE ENTREGA ─────────────────────────────────────────────
+
+    setupFrete() {
+        // Máscara de CEP nos inputs dos modais de produto (event delegation)
+        document.addEventListener('input', (e) => {
+            if (!e.target.classList.contains('frete-cep-input')) return;
+            let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+            e.target.value = v;
+        });
+
+        // Enter dispara cálculo
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || !e.target.classList.contains('frete-cep-input')) return;
+            e.preventDefault();
+            e.target.closest('.frete-calc')?.querySelector('.frete-btn-calcular')?.click();
+        });
+
+        // Botão Calcular
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.frete-btn-calcular');
+            if (!btn) return;
+
+            const container = btn.closest('.frete-calc');
+            const produtoId = parseInt(container?.dataset.produtoId) || 0;
+            const input     = container?.querySelector('.frete-cep-input');
+            const cep       = input?.value.replace(/\D/g, '') || '';
+            const resultEl  = container?.querySelector('.frete-resultado');
+
+            if (cep.length !== 8) {
+                if (resultEl) resultEl.innerHTML = '<p class="text-danger small mt-2 mb-0"><i class="fas fa-circle-exclamation me-1"></i>CEP inválido. Digite 8 dígitos.</p>';
+                return;
+            }
+
+            localStorage.setItem('psp_cep_entrega', input.value);
+            await this._calcularFrete(produtoId, cep, resultEl, btn);
+        });
+
+        // Pré-preenche CEP salvo ao abrir modais de produto
+        document.addEventListener('shown.bs.modal', (e) => {
+            const input = e.target.querySelector('.frete-cep-input');
+            if (!input) return;
+            const saved = localStorage.getItem('psp_cep_entrega');
+            if (saved) input.value = saved;
+        });
+    }
+
+    async _calcularFrete(produtoId, cep, resultEl, btnEl) {
+        if (!resultEl) return;
+
+        const btnOriginal = btnEl?.innerHTML;
+        if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+        resultEl.innerHTML = '<p class="text-muted small mt-2 mb-0"><i class="fas fa-spinner fa-spin me-1"></i>Calculando...</p>';
+
+        try {
+            const resp = await fetch('backend/api/frete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ produto_id: produtoId, cep_destino: cep }),
+            });
+            const data = await resp.json();
+
+            if (!resp.ok || !data.ok) {
+                resultEl.innerHTML = `<p class="text-danger small mt-2 mb-0"><i class="fas fa-circle-exclamation me-1"></i>${data.erro || 'Não foi possível calcular o frete para este CEP. Verifique e tente novamente.'}</p>`;
+                return;
+            }
+
+            this._renderFrete(data.servicos, data.cep, resultEl);
+
+        } catch (_) {
+            resultEl.innerHTML = '<p class="text-danger small mt-2 mb-0"><i class="fas fa-circle-exclamation me-1"></i>Não foi possível calcular o frete para este CEP. Verifique e tente novamente.</p>';
+        } finally {
+            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = btnOriginal; }
+        }
+    }
+
+    async _calcularFreteCheckout(cep) {
+        const resultEl = document.getElementById('frete-resultado-checkout');
+        if (!resultEl || !this._checkoutProductId) return;
+
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<p class="text-muted small mt-2 mb-0"><i class="fas fa-spinner fa-spin me-1"></i>Calculando prazo de entrega...</p>';
+        this._selectedFrete = null;
+
+        try {
+            const resp = await fetch('backend/api/frete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ produto_id: this._checkoutProductId, cep_destino: cep }),
+            });
+            const data = await resp.json();
+
+            if (!resp.ok || !data.ok) {
+                resultEl.innerHTML = `<p class="text-danger small mt-2 mb-0"><i class="fas fa-circle-exclamation me-1"></i>${data.erro || 'Não foi possível calcular o frete para este CEP.'}</p>`;
+                return;
+            }
+
+            localStorage.setItem('psp_cep_entrega', cep.replace(/(\d{5})(\d{3})/, '$1-$2'));
+            this._renderFreteCheckout(data.servicos, data.cep, resultEl);
+
+        } catch (_) {
+            resultEl.innerHTML = '<p class="text-danger small mt-2 mb-0"><i class="fas fa-circle-exclamation me-1"></i>Não foi possível calcular o frete para este CEP.</p>';
+        }
+    }
+
+    _alterarCepCheckout() {
+        const resultEl = document.getElementById('frete-resultado-checkout');
+        if (resultEl) { resultEl.style.display = 'none'; resultEl.innerHTML = ''; }
+        this._selectedFrete = null;
+        this._updateCheckoutTotal(
+            this._checkoutPrice,
+            parseInt(document.getElementById('checkout-qty').value) || 1
+        );
+        const cepEl = document.getElementById('checkout-cep');
+        if (cepEl) { cepEl.focus(); cepEl.select(); }
+    }
+
+    _renderFreteCheckout(servicos, cep, containerEl) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho',
+                       'agosto','setembro','outubro','novembro','dezembro'];
+        const fmt = d => `${d.getDate()} de ${MESES[d.getMonth()]}`;
+
+        const linhas = servicos.map((s, idx) => {
+            const dataMin  = this._adicionarDiasUteis(hoje, s.prazo_min);
+            const dataMax  = this._adicionarDiasUteis(hoje, s.prazo_max);
+            const mesmoDia = s.prazo_min === s.prazo_max;
+
+            const chegada = mesmoDia
+                ? `Chegará até <strong>${fmt(dataMax)}</strong>`
+                : `Chegará entre <strong>${fmt(dataMin)}</strong> e <strong>${fmt(dataMax)}</strong>`;
+
+            const precoHtml = s.preco === 0
+                ? '<span class="badge bg-success ms-1">Frete grátis</span>'
+                : `<span class="frete-preco">${s.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+
+            const logoHtml = s.logo
+                ? `<img src="${s.logo}" alt="${s.transportadora}" class="frete-logo">`
+                : `<span class="frete-logo-placeholder"><i class="fas fa-truck"></i></span>`;
+
+            const isFirst = idx === 0;
+            return `
+            <div class="frete-opcao frete-opcao--selec${isFirst ? ' frete-opcao--ativo' : ''}"
+                 data-frete='${JSON.stringify(s).replace(/'/g, '&#39;')}'>
+                <div class="frete-opcao-header">
+                    <span class="frete-selec-check"><i class="fas fa-circle-check"></i></span>
+                    ${logoHtml}
+                    <span class="frete-nome">${s.nome}</span>
+                    ${precoHtml}
+                </div>
+                <div class="frete-chegada">
+                    <i class="fas fa-calendar-days me-1"></i>${chegada}
+                </div>
+            </div>`;
+        }).join('');
+
+        containerEl.innerHTML = `
+            <div class="frete-resultado-box">
+                <p class="frete-cep-label mb-2 d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-location-dot me-1"></i>CEP ${cep} — escolha uma opção:</span>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-muted text-decoration-none frete-alterar-cep-btn" style="font-size:0.78rem;">
+                        <i class="fas fa-pencil me-1"></i>Alterar CEP
+                    </button>
+                </p>
+                ${linhas}
+            </div>`;
+
+        // Botão Alterar CEP
+        containerEl.querySelector('.frete-alterar-cep-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._alterarCepCheckout();
+        });
+
+        // Seleciona a primeira opção por padrão
+        if (servicos.length > 0) {
+            this._selectedFrete = servicos[0];
+            this._updateCheckoutTotal(
+                this._checkoutPrice,
+                parseInt(document.getElementById('checkout-qty').value) || 1
+            );
+        }
+
+        // Listener de seleção
+        containerEl.querySelectorAll('.frete-opcao--selec').forEach(el => {
+            el.addEventListener('click', () => {
+                containerEl.querySelectorAll('.frete-opcao--selec').forEach(o => o.classList.remove('frete-opcao--ativo'));
+                el.classList.add('frete-opcao--ativo');
+                try { this._selectedFrete = JSON.parse(el.dataset.frete); } catch (_) {}
+                this._updateCheckoutTotal(
+                    this._checkoutPrice,
+                    parseInt(document.getElementById('checkout-qty').value) || 1
+                );
+            });
+        });
+    }
+
+    _renderFrete(servicos, cep, containerEl) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho',
+                       'agosto','setembro','outubro','novembro','dezembro'];
+        const fmt = d => `${d.getDate()} de ${MESES[d.getMonth()]}`;
+
+        const linhas = servicos.map(s => {
+            const dataMin  = this._adicionarDiasUteis(hoje, s.prazo_min);
+            const dataMax  = this._adicionarDiasUteis(hoje, s.prazo_max);
+            const mesmoDia = s.prazo_min === s.prazo_max;
+
+            const chegada = mesmoDia
+                ? `Chegará até <strong>${fmt(dataMax)}</strong>`
+                : `Chegará entre <strong>${fmt(dataMin)}</strong> e <strong>${fmt(dataMax)}</strong>`;
+
+            const precoHtml = s.preco === 0
+                ? '<span class="badge bg-success ms-1">Frete grátis</span>'
+                : `<span class="frete-preco">${s.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>`;
+
+            const logoHtml = s.logo
+                ? `<img src="${s.logo}" alt="${s.transportadora}" class="frete-logo">`
+                : `<span class="frete-logo-placeholder"><i class="fas fa-truck"></i></span>`;
+
+            return `
+            <div class="frete-opcao">
+                <div class="frete-opcao-header">
+                    ${logoHtml}
+                    <span class="frete-nome">${s.nome}</span>
+                    ${precoHtml}
+                </div>
+                <div class="frete-chegada">
+                    <i class="fas fa-calendar-days me-1"></i>${chegada}
+                </div>
+            </div>`;
+        }).join('');
+
+        containerEl.innerHTML = `
+            <div class="frete-resultado-box">
+                <p class="frete-cep-label mb-2">
+                    <i class="fas fa-location-dot me-1"></i>Entrega para o CEP ${cep}
+                </p>
+                ${linhas}
+            </div>`;
+    }
+
+    _calcularEaster(year) {
+        const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+        const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        return new Date(year, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+    }
+
+    _feriadosBR(year) {
+        const easter  = this._calcularEaster(year);
+        const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+        const ymd     = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return new Set([
+            `${year}-01-01`, `${year}-04-21`, `${year}-05-01`,
+            `${year}-09-07`, `${year}-10-12`, `${year}-11-02`,
+            `${year}-11-15`, `${year}-12-25`,
+            ymd(addDays(easter, -2)),  // Sexta-Feira Santa
+            ymd(addDays(easter, 60)), // Corpus Christi
+        ]);
+    }
+
+    _adicionarDiasUteis(dataInicio, dias) {
+        const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const feriados = new Set([
+            ...this._feriadosBR(dataInicio.getFullYear()),
+            ...this._feriadosBR(dataInicio.getFullYear() + 1),
+        ]);
+        let d = new Date(dataInicio);
+        let contados = 0;
+        while (contados < dias) {
+            d.setDate(d.getDate() + 1);
+            const dow = d.getDay();
+            if (dow !== 0 && dow !== 6 && !feriados.has(ymd(d))) contados++;
+        }
+        return d;
     }
 
     _showPaymentComingSoon() {

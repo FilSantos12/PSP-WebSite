@@ -11,6 +11,7 @@ $labelColors = ['secondary', 'primary', 'warning', 'success'];
 // Busca todos os registros com dados do pedido
 $rows = $pdo->query("
     SELECT ot.order_id, ot.status, ot.tracking_code, ot.carrier, ot.notes, ot.updated_at,
+           ot.chosen_carrier, ot.chosen_service, ot.shipping_price, ot.shipping_deadline, ot.destination_cep,
            p.nome_comprador, p.email_comprador
     FROM order_tracking ot
     LEFT JOIN pedidos p ON p.id = CAST(ot.order_id AS INTEGER)
@@ -58,7 +59,8 @@ layout_head('Rastreamento de Pedidos');
                     <th>Pedido</th>
                     <th>Comprador</th>
                     <th>Status</th>
-                    <th>Transportadora</th>
+                    <th>Envio escolhido</th>
+                    <th>Transportadora efetiva</th>
                     <th>Código</th>
                     <th>Atualizado em</th>
                     <th class="text-center">Ações</th>
@@ -80,18 +82,33 @@ layout_head('Rastreamento de Pedidos');
                 <td>
                     <span class="badge bg-<?= $clr ?> td-status"><?= htmlspecialchars($lbl) ?></span>
                 </td>
+                <td>
+                    <?php if ($r['chosen_carrier']): ?>
+                        <span class="badge-envio">
+                            <span class="badge-envio-carrier"><?= htmlspecialchars($r['chosen_carrier']) ?></span>
+                            <span class="badge-envio-service"><?= htmlspecialchars($r['chosen_service'] ?? '') ?></span>
+                        </span>
+                    <?php else: ?>
+                        <span class="text-muted small">—</span>
+                    <?php endif; ?>
+                </td>
                 <td class="td-carrier"><?= htmlspecialchars($r['carrier'] ?? '—') ?></td>
                 <td class="td-code" style="font-family:monospace;"><?= htmlspecialchars($r['tracking_code'] ?? '—') ?></td>
                 <td class="td-updated small text-muted"><?= $upd ?></td>
                 <td class="text-center">
                     <button class="btn btn-outline-primary btn-sm"
                             onclick='abrirModal(<?= json_encode([
-                                "order_id"      => $r["order_id"],
-                                "status"        => $s,
-                                "tracking_code" => $r["tracking_code"] ?? "",
-                                "carrier"       => $r["carrier"] ?? "",
-                                "notes"         => $r["notes"] ?? "",
-                                "itens"         => $itensMap[$r["order_id"]] ?? [],
+                                "order_id"        => $r["order_id"],
+                                "status"          => $s,
+                                "tracking_code"   => $r["tracking_code"] ?? "",
+                                "carrier"         => $r["carrier"] ?? "",
+                                "notes"           => $r["notes"] ?? "",
+                                "itens"           => $itensMap[$r["order_id"]] ?? [],
+                                "chosen_carrier"  => $r["chosen_carrier"]  ?? "",
+                                "chosen_service"  => $r["chosen_service"]  ?? "",
+                                "shipping_price"  => $r["shipping_price"]  ?? null,
+                                "shipping_deadline" => $r["shipping_deadline"] ?? null,
+                                "destination_cep" => $r["destination_cep"] ?? "",
                             ]) ?>)'>
                         <i class="fas fa-edit"></i>
                     </button>
@@ -119,6 +136,17 @@ layout_head('Rastreamento de Pedidos');
                     <label class="form-label fw-semibold">Pedido #</label>
                     <input type="text" id="mOrderId" class="form-control" placeholder="Ex: 42">
                 </div>
+
+                <!-- Escolha do cliente (read-only / informativo) -->
+                <div id="mEscolhaContainer" class="mb-3" style="display:none;">
+                    <div class="entrega-bloco-escolha p-2 rounded small">
+                        <p class="mb-1 fw-semibold text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="fas fa-user me-1"></i>Escolha do cliente
+                        </p>
+                        <div id="mEscolhaInfo"></div>
+                    </div>
+                </div>
+
                 <div class="mb-3" id="mItensContainer">
                     <label class="form-label fw-semibold text-muted small">Itens do Pedido</label>
                     <div id="mItens" class="border rounded p-2 bg-light small" style="max-height:140px;overflow-y:auto;"></div>
@@ -172,6 +200,8 @@ const LABEL_COLORS = ['secondary', 'primary', 'warning', 'success'];
 let   modalBS      = null;
 let   isEditing    = false;
 
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 function abrirModal(data) {
     const title  = document.getElementById('trackingModalTitle');
     const oId    = document.getElementById('mOrderId');
@@ -183,6 +213,9 @@ function abrirModal(data) {
     const itensEl        = document.getElementById('mItens');
     const itensContainer = document.getElementById('mItensContainer');
 
+    const escolhaContainer = document.getElementById('mEscolhaContainer');
+    const escolhaInfo      = document.getElementById('mEscolhaInfo');
+
     if (data) {
         isEditing         = true;
         title.textContent = 'Editar Rastreamento — Pedido #' + data.order_id;
@@ -190,8 +223,26 @@ function abrirModal(data) {
         oId.readOnly      = true;
         document.getElementById('mStatus').value  = data.status;
         document.getElementById('mCode').value    = data.tracking_code || '';
-        document.getElementById('mCarrier').value = data.carrier || '';
+        // Pré-preenche carrier com a escolha do cliente se estiver vazio
+        document.getElementById('mCarrier').value = data.carrier || data.chosen_carrier || '';
         document.getElementById('mNotes').value   = data.notes || '';
+
+        // Exibe escolha do cliente
+        if (data.chosen_carrier) {
+            const preco = data.shipping_price != null
+                ? (parseFloat(data.shipping_price) === 0
+                    ? '<span class="badge bg-success">Grátis</span>'
+                    : `R$ ${parseFloat(data.shipping_price).toLocaleString('pt-BR',{minimumFractionDigits:2})}`)
+                : '';
+            const prazo = data.shipping_deadline ? `· ${data.shipping_deadline} dias úteis` : '';
+            const cep   = data.destination_cep   ? `· CEP ${data.destination_cep}` : '';
+            escolhaInfo.innerHTML = `
+                <strong>${escHtml(data.chosen_carrier)}</strong> — ${escHtml(data.chosen_service || '')}
+                ${preco ? ' · ' + preco : ''} ${prazo} ${cep}`;
+            escolhaContainer.style.display = '';
+        } else {
+            escolhaContainer.style.display = 'none';
+        }
 
         if (data.itens && data.itens.length) {
             itensEl.innerHTML = data.itens.map(item => {
@@ -215,8 +266,10 @@ function abrirModal(data) {
         document.getElementById('mCode').value    = '';
         document.getElementById('mCarrier').value = '';
         document.getElementById('mNotes').value   = '';
-        itensContainer.style.display = 'none';
-        itensEl.innerHTML            = '';
+        itensContainer.style.display   = 'none';
+        escolhaContainer.style.display = 'none';
+        itensEl.innerHTML              = '';
+        escolhaInfo.innerHTML          = '';
     }
 
     if (!modalBS) modalBS = new bootstrap.Modal(document.getElementById('trackingModal'));

@@ -1074,6 +1074,154 @@ img.card-img-top:hover,
     background: rgba(255, 255, 255, .28);
 }
 
+/* ===== CALCULADORA DE FRETE / PRAZO DE ENTREGA ===== */
+.frete-calc {
+    border-top: 1px solid rgba(0,0,0,.08);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem !important;
+}
+
+.frete-resultado-box {
+    border: 1px solid rgba(0,0,0,.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.83rem;
+    background: var(--bg-light);
+    margin-top: 0.5rem;
+}
+
+.frete-cep-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.frete-opcao {
+    padding: 5px 0;
+}
+
+.frete-opcao + .frete-opcao {
+    border-top: 1px solid rgba(0,0,0,.07);
+}
+
+.frete-opcao-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.frete-logo {
+    height: 18px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.frete-logo-placeholder {
+    color: var(--text-muted);
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.frete-nome {
+    flex: 1;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.frete-preco {
+    font-weight: 600;
+    color: #198754;
+    white-space: nowrap;
+}
+
+.frete-chegada {
+    color: var(--text-muted);
+    font-size: 0.79rem;
+    margin-top: 2px;
+    padding-left: 25px;
+}
+
+.frete-chegada strong {
+    color: var(--text-dark);
+}
+
+/* Caixa de resultado no checkout (usa mesmas classes) */
+#frete-resultado-checkout .frete-resultado-box {
+    margin-top: 0;
+}
+
+/* Opções de frete selecionáveis (checkout) */
+.frete-opcao--selec {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px 8px;
+    transition: background .15s, border-color .15s;
+    border: 1px solid transparent;
+}
+
+.frete-opcao--selec:hover {
+    background: rgba(13, 110, 253, .06);
+}
+
+.frete-opcao--ativo {
+    background: rgba(13, 110, 253, .08);
+    border-color: rgba(13, 110, 253, .35);
+}
+
+.frete-selec-check {
+    color: transparent;
+    font-size: .85rem;
+    margin-right: .4rem;
+    flex-shrink: 0;
+    transition: color .15s;
+}
+
+.frete-opcao--ativo .frete-selec-check {
+    color: var(--accent);
+}
+
+body.dark-mode .frete-opcao--selec:hover {
+    background: rgba(13, 110, 253, .12);
+}
+
+body.dark-mode .frete-opcao--ativo {
+    background: rgba(13, 110, 253, .18);
+    border-color: rgba(13, 110, 253, .5);
+}
+
+/* Dark mode */
+body.dark-mode .frete-calc {
+    border-top-color: rgba(255,255,255,.1);
+}
+
+body.dark-mode .frete-resultado-box {
+    background: rgba(255,255,255,.04);
+    border-color: rgba(255,255,255,.12);
+}
+
+body.dark-mode .frete-opcao + .frete-opcao {
+    border-top-color: rgba(255,255,255,.08);
+}
+
+body.dark-mode .frete-nome,
+body.dark-mode .frete-chegada strong {
+    color: var(--text-dark);
+}
+
+/* Resumo de valores no checkout */
+.checkout-resumo {
+    border-top: 1px solid rgba(0,0,0,.08);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    font-size: 0.9rem;
+}
+
+body.dark-mode .checkout-resumo {
+    border-top-color: rgba(255,255,255,.1);
+}
+
 /* ===== PREÇO DO PRODUTO ===== */
 .product-price {
     font-size: 1.1rem;
@@ -1146,4 +1294,38 @@ body.dark-mode .checkout-product-icon {
 
 body.dark-mode .product-price {
     color: #90b4f5;
+}
+
+/* ===== ENVIO / TRANSPORTADORA (admin) ===== */
+.badge-envio {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    background: rgba(13, 110, 253, .08);
+    border: 1px solid rgba(13, 110, 253, .25);
+    border-radius: var(--radius, 12px);
+    padding: 2px 8px;
+    font-size: .78rem;
+}
+
+.badge-envio-carrier {
+    font-weight: 600;
+    color: #0a58ca;
+}
+
+.badge-envio-service {
+    color: #555;
+}
+
+.badge-rastreio-pendente {
+    color: #e67e22;
+    font-size: .8rem;
+    margin-left: .25rem;
+    cursor: default;
+}
+
+/* Bloco de escolha do cliente (detalhe do pedido e modal de rastreio) */
+.entrega-bloco-escolha {
+    background: rgba(13, 110, 253, .05);
+    border: 1px solid rgba(13, 110, 253, .2);
 }

@@ -1173,6 +1173,25 @@
                         <div class="mb-0">
                             <input type="text" class="form-control" id="checkout-complemento" placeholder="Complemento (opcional — apto, bloco, casa...)">
                         </div>
+
+                        <!-- Prazo de entrega estimado (aparece após busca de CEP) -->
+                        <div id="frete-resultado-checkout" style="display:none;"></div>
+
+                        <!-- Resumo de valores (aparece após selecionar frete) -->
+                        <div id="checkout-resumo" class="checkout-resumo" style="display:none;">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span>Subtotal</span>
+                                <span id="checkout-subtotal-val">R$ 0,00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span class="text-muted"><i class="fas fa-truck me-1"></i><span id="checkout-frete-nome-resumo"></span></span>
+                                <span id="checkout-frete-val-resumo" class="fw-semibold text-success"></span>
+                            </div>
+                            <div class="d-flex justify-content-between fw-bold border-top pt-2">
+                                <span>Total</span>
+                                <span id="checkout-grand-total" class="text-success">R$ 0,00</span>
+                            </div>
+                        </div>
                     </form>
 
                     <!-- Pagamento inline — Checkout Bricks -->
@@ -1190,14 +1209,17 @@
                 </div>
                 <div class="modal-footer flex-column gap-2 pt-3" id="checkout-footer">
                     <div class="d-flex gap-2 w-100">
-                        <button type="button" class="btn btn-outline-primary flex-fill py-2" id="checkout-submit-redirect">
+                        <button type="button" class="btn btn-outline-primary flex-fill py-2" id="checkout-submit-redirect" disabled>
                             <i class="fas fa-arrow-up-right-from-square me-2"></i>Pagar no Mercado Pago
                         </button>
-                        <button type="button" class="btn btn-success flex-fill py-2" id="checkout-submit-bricks">
+                        <button type="button" class="btn btn-success flex-fill py-2" id="checkout-submit-bricks" disabled>
                             <i class="fas fa-credit-card me-2"></i>Pagar aqui —
                             <span id="checkout-btn-total" class="fw-bold">R$ 0,00</span>
                         </button>
                     </div>
+                    <p id="checkout-frete-aviso" class="text-muted small text-center mb-0">
+                        <i class="fas fa-truck me-1"></i>Calcule o frete para continuar
+                    </p>
                     <p class="text-muted small text-center mb-0">
                         <i class="fas fa-shield-alt me-1"></i>Pagamento 100% seguro via <strong>Mercado Pago</strong>
                     </p>

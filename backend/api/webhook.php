@@ -8,6 +8,7 @@ require_once __DIR__ . '/_core.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../config/mercadopago.php';
 require_once __DIR__ . '/../helpers/email.php';
+require_once __DIR__ . '/../helpers/status.php';
 
 use MercadoPago\MercadoPagoConfig;
 use MercadoPago\Client\Payment\PaymentClient;
@@ -63,17 +64,7 @@ try {
 
     $pedidoId = (int) $pagamento->external_reference;
 
-    $statusMap = [
-        'approved'     => 'aprovado',
-        'pending'      => 'pendente',
-        'in_process'   => 'em_analise',
-        'rejected'     => 'recusado',
-        'cancelled'    => 'cancelado',
-        'refunded'     => 'reembolsado',
-        'charged_back' => 'contestado',
-    ];
-
-    $novoStatus = $statusMap[$pagamento->status] ?? 'pendente';
+    $novoStatus = mpStatusParaInterno($pagamento->status);
 
     $pdo = getDB();
 
