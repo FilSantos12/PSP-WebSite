@@ -662,6 +662,11 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 - `AGENTE_PROVEDOR = 'groq'` → traduz Anthropic→OpenAI, envia ao Groq, traduz resposta de volta; retry automático em `tool_use_failed`; modelo `llama3-groq-70b-8192-tool-use-preview`
 - Trocar provedor: mudar só `AGENTE_PROVEDOR` em `loja.php`
 
+### Abertura automática
+- Painel abre sozinho após **10 segundos** da primeira visita (`setTimeout` de `10000ms`)
+- Uma vez por sessão — controle via `sessionStorage('psp_agente_auto_aberto')`
+- Se o usuário já abriu manualmente antes dos 10s, o timeout não faz nada
+
 ### Modo mock
 - `AGENTE_MODO_MOCK = true` → não chama API; loga `MOCK-SKIP`; retorna resposta fixa
 - Nasce `true` (seguro por padrão, igual a `LOJA_DADOS_REAIS`)
