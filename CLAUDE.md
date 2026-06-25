@@ -179,7 +179,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | ordem | INTEGER | ordem de exibição dos botões de filtro |
 | criado_em | TEXT | |
 
-> Migration inicial: acessar `migrate-categorias.php` uma vez via browser e apagar o arquivo.
+> Migration inicial: `migrations/migrate-categorias.php` — já executada, arquivo mantido em `migrations/` para histórico.
 
 ### Tabela `pedidos`
 - id, nome/email/telefone_comprador, endereço completo, total, status, mp_preferencia_id, token_acompanhamento, criado_em
@@ -209,7 +209,7 @@ Em processo de evolução para e-commerce com pagamentos via **Mercado Pago** e 
 | requer_reautorizacao | INTEGER | 1 quando o refresh falha — sinaliza admin |
 | updated_at | DATETIME | Atualizado a cada refresh |
 
-- Criada por `migrate_melhorenvio_auth.php` (executar uma vez e apagar)
+- Criada por `migrations/migrate_melhorenvio_auth.php` (já executada)
 - Gerenciada exclusivamente via `MelhorEnvio::_salvarTokenNoBanco()` e `_marcarRequerReautorizacao()`
 
 ### Tabela `cache_cotacoes`
@@ -414,7 +414,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | `destination_cep` | TEXT | CEP de destino (8 dígitos) — imutável |
 
 - A coluna `carrier` existente permanece como **transportadora efetiva do despacho** (editável pelo admin)
-- Migração: `migrate_shipping_choice.php` (idempotente, apagar após uso)
+- Migração: `migrations/migrate_shipping_choice.php` (já executada)
 
 ### Fluxo de captura
 1. `_calcularFreteCheckout()` chama `_renderFreteCheckout()` — exibe opções como itens clicáveis com ícone ✓; primeira opção pré-selecionada; seleção gravada em `this._selectedFrete`
@@ -590,7 +590,6 @@ Retorna adicionalmente: `chosen_carrier`, `chosen_service`, `shipping_price`, `s
 - Credenciais de produção do MP em `backend/config/mercadopago.php` (trocar tokens TEST- pelos de produção)
 - `MP_BASE_URL` atualizado com domínio real (sem ngrok)
 - Senha do admin trocada (padrão: `admin123`)
-- `setup.php` removido ou bloqueado após deploy
 - Credenciais de produção do Melhor Envio em `backend/config/melhorenvio.php` (`MELHORENVIO_BASE_URL`, `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`) e reconectar via Admin → Integrações após trocar as credenciais
 - Dimensões reais dos produtos cadastradas no admin (defaults de 0.5 kg / 15×10×20 cm são placeholders)
 
