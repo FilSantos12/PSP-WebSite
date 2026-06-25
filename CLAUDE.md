@@ -316,6 +316,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 15 | Status automático + frete na ficha/detalhe — `resolverStatusPedido` centralizado; frete em `pedido-detalhe.php` e `pedido-ficha.php`; status derivado automático no Bricks; `pedido_status` exposto em `tracking.php` | ✅ Concluído |
 | Fase 16 | Emissão de etiquetas Melhor Envio — fluxo 4 etapas (cart→checkout→generate→print); serviço em `backend/melhorenvio/shipment.php`; endpoint admin `etiqueta-action.php`; bloco UI em `pedido-detalhe.php`; trava `LOJA_DADOS_REAIS`; tracking_code automático via `meTracking()` | ✅ Concluído |
 | Fase 17 | Agente conversacional de compras (v1, somente leitura) — widget de chat flutuante; 3 ferramentas read-only (`buscar_produtos`, `calcular_frete`, `consultar_pedido`); suporte a Anthropic e Groq via flag `AGENTE_PROVEDOR`; modo mock para testes sem custo | ✅ Concluído |
+| Fase 18 | Seção "Pagamentos & Segurança" — logos SVG de bandeiras (Visa, Mastercard, Elo, Amex, Hipercard via CDN); badges para Pix, Boleto e Mercado Pago; bloco de segurança (HTTPS, PCI-DSS, LGPD); dark mode coberto | ✅ Concluído |
 
 ## Módulo Frete — Melhor Envio (Fase 11)
 
@@ -684,6 +685,15 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 - `backend/config/me_tokens.json` — aposentado (Fase 13); tokens agora em `melhorenvio_auth` no banco
 - `vendor/` — dependências Composer
 - `logs/` — logs do webhook e do agente
+
+## Seção Pagamentos & Segurança (Fase 18)
+
+- `<section id="pagamentos-seguranca">` inserida imediatamente antes do `<footer>` em `index.html`
+- **Bandeiras:** logos SVG flat via `cdn.jsdelivr.net/npm/payment-icons@1.1.0/min/flat/` (Visa, Mastercard, Elo, Amex) + `cdn.jsdelivr.net/gh/aaronfagan/svg-credit-card-payment-icons@main/flat/` (Hipercard)
+- **Badges estilizados:** Pix (`#00b133`), Boleto (`#444`), Mercado Pago (`#009ee3`) — sem imagem externa
+- **Bloco de segurança:** HTTPS, PCI-DSS (MP), sem armazenamento de cartão, LGPD — copy factualmente verificável
+- Logos 54×38px (`object-fit: contain`); CSS em `style.css` com variáveis existentes; dark mode coberto
+- Sem JS, sem dependências novas, sem `display:none` no CSS
 
 ## Preferências
 - Abordagem não agressiva: melhorar sem reescrever seções inteiras
