@@ -19,6 +19,7 @@ class AgenteChat {
         if (!this._btn || !this._painel) return;
 
         this._bind();
+        this._agendarAbertura();
     }
 
     _bind() {
@@ -34,6 +35,17 @@ class AgenteChat {
                 this._enviarMensagem();
             }
         });
+    }
+
+    _agendarAbertura() {
+        // Abre automaticamente após 30s, apenas uma vez por sessão
+        if (sessionStorage.getItem('psp_agente_auto_aberto')) return;
+        setTimeout(() => {
+            if (this._painel.style.display !== 'flex') {
+                this._abrir_painel();
+                sessionStorage.setItem('psp_agente_auto_aberto', '1');
+            }
+        }, 10000);
     }
 
     _toggle() {
