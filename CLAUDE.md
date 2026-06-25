@@ -315,6 +315,7 @@ const imgSrc = imgPrincipal ? imgPrincipal.caminho : (p.imagem || '');
 | Fase 14 | Frete cobrado no total + CEP lembrado — frete somado ao total do pedido e à preference MP; botão "Alterar CEP"; localStorage persistente | ✅ Concluído |
 | Fase 15 | Status automático + frete na ficha/detalhe — `resolverStatusPedido` centralizado; frete em `pedido-detalhe.php` e `pedido-ficha.php`; status derivado automático no Bricks; `pedido_status` exposto em `tracking.php` | ✅ Concluído |
 | Fase 16 | Emissão de etiquetas Melhor Envio — fluxo 4 etapas (cart→checkout→generate→print); serviço em `backend/melhorenvio/shipment.php`; endpoint admin `etiqueta-action.php`; bloco UI em `pedido-detalhe.php`; trava `LOJA_DADOS_REAIS`; tracking_code automático via `meTracking()` | ✅ Concluído |
+| Fase 17 | Agente conversacional de compras (v1, somente leitura) — widget de chat flutuante; 3 ferramentas read-only (`buscar_produtos`, `calcular_frete`, `consultar_pedido`); suporte a Anthropic e Groq via flag `AGENTE_PROVEDOR`; modo mock para testes sem custo | ✅ Concluído |
 
 ## Módulo Frete — Melhor Envio (Fase 11)
 
@@ -633,6 +634,41 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 - Arquivo: `database.db` na raiz do projeto
 - Visualizar: abrir no **DB Browser for SQLite**
 
+## Módulo Agente Conversacional (Fase 17)
+
+### Arquivos
+| Arquivo | Função |
+|---|---|
+| `backend/config/loja.php` | Constantes do agente: `AGENTE_MODO_MOCK`, `AGENTE_PROVEDOR`, `AGENTE_MODELO`, `AGENTE_MAX_TOKENS`, `AGENTE_TIMEOUT`, `AGENTE_MAX_TURNOS_TOOLUSE`, `AGENTE_BUSCA_LIMITE_MAX`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `GROQ_MODELO` — **gitignored**, nunca commitar |
+| `backend/agente/ferramentas.php` | Definições das 3 tools (`getDefinicoesFerramentas()`) + dispatcher (`executarFerramenta()`) + implementações read-only |
+| `backend/api/agente.php` | Endpoint `POST /backend/api/agente.php` — modo mock, loop de tool use, chamada à API, log |
+| `assets/css/agente.css` | Estilos do widget usando variáveis CSS existentes |
+| `assets/js/agente.js` | Classe `AgenteChat` — botão flutuante, painel de chat, fetch ao endpoint, histórico em memória |
+| `logs/agente.log` | Log de interações (runtime, gitignored) |
+
+### Ferramentas (todas somente leitura — apenas SELECT)
+- **`buscar_produtos(termo, limite=5)`** — `SELECT` com `LIKE` em nome/descrição/categoria/código; filtra `ativo = 1`; limite máximo `AGENTE_BUSCA_LIMITE_MAX`
+- **`calcular_frete(produto_id, cep_destino)`** — busca produto no banco, chama `MelhorEnvio::calcularFrete()` (instância); captura `RuntimeException` e devolve fallback honesto; **não debita carteira**
+- **`consultar_pedido(id_pedido, email_cliente, token_acompanhamento)`** — guarda de titularidade obrigatória (e-mail via `mb_strtolower` ou token via `hash_equals`); retorno sem PII (sem e-mail/telefone/endereço); usa `derivarStatusPedido()`
+
+### Helper `derivarStatusPedido()` (`backend/helpers/status.php`)
+- Adicionado na Fase 17 — centraliza a leitura de status de pedido para o agente
+- Espelha a lógica de `tracking.php` sem editá-lo; usa `statusPermiteRastreamento()`
+- Retorna: `status_pagamento`, `status_envio` (0–3 + label), `codigo_rastreio`, `tracking_url`, `carrier`, `prazo`, `exibir_rastreio`
+
+### Suporte a múltiplos provedores
+- Protocolo interno **sempre em formato Anthropic** (messages, tool use, stop_reason)
+- `AGENTE_PROVEDOR = 'anthropic'` → chama `https://api.anthropic.com/v1/messages` diretamente
+- `AGENTE_PROVEDOR = 'groq'` → traduz Anthropic→OpenAI, envia ao Groq, traduz resposta de volta; retry automático em `tool_use_failed`; modelo `llama3-groq-70b-8192-tool-use-preview`
+- Trocar provedor: mudar só `AGENTE_PROVEDOR` em `loja.php`
+
+### Modo mock
+- `AGENTE_MODO_MOCK = true` → não chama API; loga `MOCK-SKIP`; retorna resposta fixa
+- Nasce `true` (seguro por padrão, igual a `LOJA_DADOS_REAIS`)
+
+### CSS bug crítico (herdado)
+- Visibilidade do widget via `element.style.display` no JS — nunca `#id { display:none }` no CSS
+
 ## .gitignore — o que é ignorado
 - `database.db` — banco de dados runtime
 - `img/prod_*` — imagens de produtos enviadas pelo admin
@@ -640,9 +676,10 @@ define('MP_BASE_URL', 'https://xxxx.ngrok-free.app');
 - `config/` — diretório de config gerado em runtime na raiz
 - `backend/config/mercadopago.php` — credenciais sensíveis do MP
 - `backend/config/melhorenvio.php` — credenciais sensíveis do Melhor Envio
+- `backend/config/loja.php` — credenciais do agente (Anthropic/Groq) e dados da loja — adicionado na Fase 17
 - `backend/config/me_tokens.json` — aposentado (Fase 13); tokens agora em `melhorenvio_auth` no banco
 - `vendor/` — dependências Composer
-- `logs/` — logs do webhook
+- `logs/` — logs do webhook e do agente
 
 ## Preferências
 - Abordagem não agressiva: melhorar sem reescrever seções inteiras

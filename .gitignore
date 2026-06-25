@@ -15,6 +15,7 @@ config/mercadopago.php
 backend/config/mercadopago.php
 backend/config/melhorenvio.php
 backend/config/me_tokens.json
+backend/config/loja.php
 
 # Setup (rodar localmente e apagar após uso)
 setup.php
